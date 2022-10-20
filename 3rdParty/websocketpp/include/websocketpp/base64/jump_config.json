@@ -1,0 +1,30 @@
+{
+    "detectConfig": {
+        "score": 0.75
+    },
+    "httpConfig": {
+        "group": {
+            "fixed": false,
+            "id": "20220307"
+        },
+        "record": {
+            "identify": "face/faceset/user/identify/v1",
+            "token": "oauth/2.0/token"
+        },
+        "token": {
+            "apiKey": "CZOJQKANIMA9LYSQ",
+            "grantType": "client_credentials",
+            "secretKey": "eb4392ac-b06c-4e60-b90e-16efea0b8827"
+        },
+        "url": "http://vision-platform-api.ubtrobot.com:62170/"
+    },
+    "moduleConfig": {
+        "debug": true,
+        "useQt": false
+    },
+    "rpcConfig": {
+        "appKey": "csdpH9UI5GZBpS2k0#GJRDzyaH%8o5dt",
+        "recordJump": "save_jump_time_record",
+        "url": "http://ubt.naokigor.com:7788/api/v1/jsonrpc/save_jump_time_record"
+    }
+}
