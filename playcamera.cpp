@@ -1,4 +1,5 @@
 #include "playcamera.h"
+#include "common/logging.h"
 #include "image.h"
 
 PlayCamera::PlayCamera()
@@ -19,6 +20,7 @@ void PlayCamera::init()
 
 void PlayCamera::start()
 {
+    running_ = true;
     init();
 }
 
@@ -39,12 +41,18 @@ void PlayCamera::handleTaskCallback()
             std::unique_lock<std::mutex> guard(matMutex_);
             if (!curMat_.empty())
             {
-                hahaImg_ = image::mat2qim(curMat_);
+                // QImage hahaImg = image::mat2qim(curMat_);
+                // emit sig_getHahaImage(hahaImg);
+                emit sig_getHahaImage1(curMat_.clone());
             }
         }
 
-        emit sig_getHahaImage(hahaImg_);
-
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
+}
+
+void PlayCamera::consumeRecord(const cv::Mat color_mat, const cv::Mat depth_mat)
+{
+    std::unique_lock<std::mutex> guard(matMutex_);
+    curMat_ = color_mat.clone();
 }

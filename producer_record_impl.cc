@@ -16,11 +16,7 @@ void ProducerRecordImpl::run()
 {
     running_ = true;
 
-    int id = 1;
-
-    using namespace common::time;
-
-    VideoCapture cap(videoIndex_);
+    VideoCapture cap(videoIndex_, cv::CAP_ANY);
     if (!cap.isOpened())
     {
         cout << "Cannot open camera\n";
@@ -28,42 +24,34 @@ void ProducerRecordImpl::run()
     }
 
     Mat frame;
-    Mat gray;
-    //namedWindow("live", WINDOW_AUTOSIZE); // 命名一個視窗，可不寫
 
     while (running_)
     {
         // 擷取影像
         bool ret = cap.read(frame); // or cap >> frame;
+
         if (!ret)
         {
-            cout << "Can't receive frame (stream end?). Exiting ...\n";
-            break;
-        }
-
-        // 彩色轉灰階
-        cvtColor(frame, gray, COLOR_BGR2GRAY);
-        // 按下 q 鍵離開迴圈
-        if (waitKey(1) == 'q')
-        {
+            LOG_DEBUG("Can't receive frame (stream end?). Exiting ...");
             break;
         }
 
         auto consumers = getRecordConsumers();
         for (auto it = consumers.begin(); it != consumers.end(); ++it)
         {
-            // LOG_DEBUG("send");
-            (*it)->consumeRecord(frame, gray);
+            (*it)->consumeRecord(frame, frame);
         }
 
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
+
+    running_ = false;
 }
 
-ProducerRecordImpl::ProducerRecordImpl()
+ProducerRecordImpl::ProducerRecordImpl(int videoIndex)
     : running_(false)
     , thread_(nullptr)
-    , videoIndex_(0)
+    , videoIndex_(videoIndex)
 {
 }
 

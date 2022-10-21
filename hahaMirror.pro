@@ -16,32 +16,41 @@ DEFINES += QT_DEPRECATED_WARNINGS
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
 SOURCES += \
-    consumer_exception.cc \
+    # consumer_exception.cc \
     # consumer_identify.cc \
     # consumer_mjpeg.cc \
+    faceidentify.cpp \
+    hahacore.cpp \
     http_client.cc \
     image.cpp \
+    imageoverlay.cpp \
     main.cpp \
     mainwindow.cpp \
     playcamera.cpp \
-    producer_record_impl.cc
+    producer_record_impl.cc \
+    websocket_server.cc
 
 HEADERS += \
     consumer_base.h \
-    consumer_exception.h \
+    # consumer_exception.h \
   #  consumer_identify.h \
   #  consumer_mjpeg.h \
+    faceidentify.h \
+    hahacore.h \
     http_client.h \
     image.h \
+    imageoverlay.h \
     mainwindow.h \
     playcamera.h \
     producer_base.h \
-    producer_record_impl.h
+    producer_record_impl.h \
+    websocket_server.h
 
 FORMS += \
     mainwindow.ui
 
 LIBS += -lcurl
+LIBS += -L$$PWD/lib/opencv -lopencv_core -lopencv_highgui -lopencv_imgproc -lopencv_video -lopencv_videoio
 
 include($$PWD/3rdParty/3rdParty.pri)
 include($$PWD/common/common.pri)

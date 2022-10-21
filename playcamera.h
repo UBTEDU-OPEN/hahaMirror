@@ -10,7 +10,7 @@
 #include <QImage>
 #include <QObject>
 
-class PlayCamera : public ConsumerRecord
+class PlayCamera : public QObject, public ConsumerRecord
 {
     Q_OBJECT
 public:
@@ -28,7 +28,8 @@ protected:
     void handleTaskCallback();
 
 signals:
-    void sig_getHahaImage(QImage &img);
+    void sig_getHahaImage(QImage img);
+    void sig_getHahaImage1(cv::Mat mat);
 
 private:
     bool running_;

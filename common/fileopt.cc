@@ -58,7 +58,7 @@ std::string getFileContent(std::string filepath)
 
 std::string getFileMd5Value(std::string filepath)
 {
-    using namespace jump;
+    using namespace common;
 
     std::string md5_value;
 
