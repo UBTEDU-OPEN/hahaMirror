@@ -14,11 +14,19 @@ DEFINES += QT_DEPRECATED_WARNINGS
 # In order to do so, uncomment the following line.
 # You can also select to disable deprecated APIs only up to a certain version of Qt.
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
+# INCLUDEPATH += /home/ubt/intel/openvino/opencv/include
+
+
+
+include($$PWD/3rdParty/3rdParty.pri)
+include($$PWD/common/common.pri)
+include($$PWD/algorithm/algorithm.pri)
 
 SOURCES += \
     # consumer_exception.cc \
     # consumer_identify.cc \
     # consumer_mjpeg.cc \
+    facedetect.cpp \
     faceidentify.cpp \
     hahacore.cpp \
     http_client.cc \
@@ -35,6 +43,7 @@ HEADERS += \
     # consumer_exception.h \
   #  consumer_identify.h \
   #  consumer_mjpeg.h \
+    facedetect.h \
     faceidentify.h \
     hahacore.h \
     http_client.h \
@@ -50,10 +59,9 @@ FORMS += \
     mainwindow.ui
 
 LIBS += -lcurl
-LIBS += -L$$PWD/lib/opencv -lopencv_core -lopencv_highgui -lopencv_imgproc -lopencv_video -lopencv_videoio
+LIBS += -L$$PWD/lib/opencv -lopencv_calib3d -lopencv_core -lopencv_dnn -lopencv_features2d -lopencv_flann -lopencv_gapi -lopencv_highgui -lopencv_imgcodecs -lopencv_imgproc -lopencv_video -lopencv_videoio -lopencv_photo
 
-include($$PWD/3rdParty/3rdParty.pri)
-include($$PWD/common/common.pri)
+
 
 # Default rules for deployment.
 qnx: target.path = /tmp/$${TARGET}/bin

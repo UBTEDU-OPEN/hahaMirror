@@ -29,13 +29,15 @@ void MainWindow::init()
     registerType();
     common::log::initLogger();
 
-    cameraServer_.startServer();
-    cameraClient_.start();
-
     webServer_ = new WebsocketServer;
-    webServer_->startVirtualServer(9004);
+    webServer_->startVirtualServer(9005);
 
+    cameraClient_.start();
+    facedetect_.start();
+
+    cameraServer_.startServer();
     cameraServer_.registerRecordConsumer(&cameraClient_);
+    cameraServer_.registerRecordConsumer(&facedetect_);
     initConnect();
 }
 
@@ -63,7 +65,6 @@ void MainWindow::slot_getHahaImage(QImage img)
 
 void MainWindow::slot_getHahaImage1(cv::Mat mat)
 {
-    cv::flip(mat, mat, 0);
     QImage img = image::mat2qim(mat);
     QPixmap pix = QPixmap::fromImage(img);
     ui->lbl_video->setPixmap(pix);

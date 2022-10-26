@@ -3,6 +3,7 @@
 
 #include <QMainWindow>
 
+#include "facedetect.h"
 #include "playcamera.h"
 #include "producer_record_impl.h"
 #include "websocket_server.h"
@@ -39,5 +40,6 @@ private:
     ProducerRecordImpl cameraServer_;
     PlayCamera cameraClient_;
     WebsocketServer *webServer_;
+    FaceDetect facedetect_;
 };
 #endif // MAINWINDOW_H

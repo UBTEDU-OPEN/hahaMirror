@@ -64,7 +64,7 @@ void WebsocketServer::startSendThread()
             j["face_image"] = front.face_image;
 
             std::string sendtxt = j.dump(2);
-            LOG_DEBUG(sendtxt);
+            LOG_TRACE(sendtxt);
 
             for (auto it = m_connections_.begin(); it != m_connections_.end(); ++it)
             {

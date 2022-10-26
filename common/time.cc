@@ -1,5 +1,6 @@
 #include "time.h"
 
+#include "common/logging.h"
 #include <arpa/inet.h>
 #include <assert.h>
 #include <endian.h>
@@ -33,8 +34,8 @@ uint64_t getCurrentNanoTime()
 #else
     struct timeval timeofday;
     gettimeofday(&timeofday, NULL);
-    return static_cast<uint64_t>(timeofday.tv_sec) * 1000000000LL +
-           static_cast<uint64_t>(timeofday.tv_usec) * 1000LL;
+    return static_cast<uint64_t>(timeofday.tv_sec) * 1000000000LL
+           + static_cast<uint64_t>(timeofday.tv_usec) * 1000LL;
 #endif
 }
 
@@ -60,15 +61,15 @@ uint64_t getCurrentMilliTime()
 #else
     struct timeval timeofday;
     gettimeofday(&timeofday, NULL);
-    return static_cast<uint64_t>(timeofday.tv_sec) * 1000LL +
-           static_cast<uint64_t>(timeofday.tv_usec) / 1000LL;
+    return static_cast<uint64_t>(timeofday.tv_sec) * 1000LL
+           + static_cast<uint64_t>(timeofday.tv_usec) / 1000LL;
 #endif
 }
 
 std::string timeFormatYMD()
 {
     time_t rawtime;
-    struct tm* info;
+    struct tm *info;
     char buffer[80];
     ::time(&rawtime);
     info = localtime(&rawtime);
@@ -80,7 +81,7 @@ std::string timeFormatYMD()
 std::string timeFormatString()
 {
     time_t rawtime;
-    struct tm* info;
+    struct tm *info;
     char buffer[80];
     ::time(&rawtime);
     info = localtime(&rawtime);
@@ -123,8 +124,8 @@ std::string timeFormatString()
 #define FRAC2USEC(x) ((uint32_t) NTP_REVE_FRAC32((x) *1000000.0))
 
 #define NTP_LFIXED2DOUBLE(x) \
-    ((double) (ntohl(((struct l_fixedpt*) (x))->intpart) - JAN_1970 + \
-               FRAC2USEC(ntohl(((struct l_fixedpt*) (x))->fracpart)) / 1000000.0))
+    ((double) (ntohl(((struct l_fixedpt *) (x))->intpart) - JAN_1970 \
+               + FRAC2USEC(ntohl(((struct l_fixedpt *) (x))->fracpart)) / 1000000.0))
 
 using namespace std;
 struct s_fixedpt
@@ -163,10 +164,10 @@ struct ntphdr
     struct l_fixedpt ntp_transts;
 };
 
-static in_addr_t inet_host(const char* host)
+static in_addr_t inet_host(const char *host)
 {
     in_addr_t saddr;
-    struct hostent* hostent;
+    struct hostent *hostent;
 
     if ((saddr = inet_addr(host)) == INADDR_NONE)
     {
@@ -179,9 +180,9 @@ static in_addr_t inet_host(const char* host)
     return saddr;
 }
 
-static int get_ntp_packet(void* buf, size_t* size) //构建并发送NTP请求报文
+static int get_ntp_packet(void *buf, size_t *size) //构建并发送NTP请求报文
 {
-    struct ntphdr* ntp;
+    struct ntphdr *ntp;
     struct timeval tv;
 
     if (!size || *size < NTP_HLEN)
@@ -189,7 +190,7 @@ static int get_ntp_packet(void* buf, size_t* size) //构建并发送NTP请求报
 
     memset(buf, 0, *size);
 
-    ntp = (struct ntphdr*) buf;
+    ntp = (struct ntphdr *) buf;
     ntp->ntp_li = NTP_LI;
     ntp->ntp_vn = NTP_VN;
     ntp->ntp_mode = NTP_MODE;
@@ -206,7 +207,7 @@ static int get_ntp_packet(void* buf, size_t* size) //构建并发送NTP请求报
     return 0;
 }
 
-static double get_rrt(const struct ntphdr* ntp, const struct timeval* recvtv) //往返时延
+static double get_rrt(const struct ntphdr *ntp, const struct timeval *recvtv) //往返时延
 {
     double t1, t2, t3, t4;
 
@@ -218,7 +219,7 @@ static double get_rrt(const struct ntphdr* ntp, const struct timeval* recvtv) //
     return (t4 - t1) - (t3 - t2);
 }
 
-static double get_offset(const struct ntphdr* ntp, const struct timeval* recvtv) //偏移量
+static double get_offset(const struct ntphdr *ntp, const struct timeval *recvtv) //偏移量
 {
     double t1, t2, t3, t4;
 
@@ -236,7 +237,7 @@ void updateNtpTime()
 {
     char dateBuf[64] = {0};
     char cmd[128] = {0};
-    tm* local;
+    tm *local;
     char buf[BUFSIZE];
     size_t nbytes;
     int sockfd, maxfd1;
@@ -259,7 +260,7 @@ void updateNtpTime()
         exit(-1);
     }
 
-    if (connect(sockfd, (struct sockaddr*) &servaddr, sizeof(struct sockaddr)) != 0)
+    if (connect(sockfd, (struct sockaddr *) &servaddr, sizeof(struct sockaddr)) != 0)
     {
         perror("connect error");
         exit(-1);
@@ -291,8 +292,8 @@ void updateNtpTime()
 
             //计算C/S时间偏移量
             gettimeofday(&recvtv, NULL);
-            struct ntphdr* t = (struct ntphdr*) buf;
-            offset = get_offset((struct ntphdr*) buf, &recvtv);
+            struct ntphdr *t = (struct ntphdr *) buf;
+            offset = get_offset((struct ntphdr *) buf, &recvtv);
             ////更新系统时间
             printf("offset: %f\n", offset);
             gettimeofday(&tv, NULL);
@@ -301,7 +302,7 @@ void updateNtpTime()
             tv.tv_usec += offset - (int) offset;
             printf("tv_sec: %lld, tv_usec: %lld\n", tv.tv_sec, tv.tv_usec);
 
-            local = localtime((time_t*) &tv.tv_sec);
+            local = localtime((time_t *) &tv.tv_sec);
             strftime(dateBuf, 64, "%Y-%m-%d %H:%M:%S", local);
             sprintf(cmd, "system busybox date -s \"%s\"", dateBuf);
 
@@ -317,7 +318,7 @@ void updateNtpTime()
             { //恢复uid
             }
 
-            printf("%s \n", ctime((time_t*) &tv.tv_sec));
+            printf("%s \n", ctime((time_t *) &tv.tv_sec));
         }
     }
     else
@@ -326,6 +327,62 @@ void updateNtpTime()
     }
 
     close(sockfd);
+}
+
+void TimeConsumingAnalysis::addTimePoint()
+{
+    std::string point_name = "t" + std::to_string(index_++);
+    addTimePoint(point_name);
+}
+
+void TimeConsumingAnalysis::addTimePoint(std::string point)
+{
+    if (point == "")
+    {
+        LOG_ERROR("point can't be empty!!");
+    }
+    uint64_t now = getCurrentMilliTime();
+
+    if (lastpointtime_ == 0 && lastpointname_ == "")
+    {
+        lastpointname_ = point;
+        lastpointtime_ = now;
+        return;
+    }
+
+    points_.push_back({point, now - lastpointtime_});
+
+    lastpointname_ = point;
+    lastpointtime_ = now;
+}
+
+void TimeConsumingAnalysis::reset()
+{
+    lastpointname_ = "";
+    lastpointtime_ = 0;
+
+    index_ = 0;
+    points_.clear();
+}
+
+std::string TimeConsumingAnalysis::print()
+{
+    std::string result = "";
+    for (auto it = points_.begin(); it != points_.end(); ++it)
+    {
+        result += it->first + ": " + std::to_string(it->second) + ", ";
+    }
+
+    if (result != "")
+    {
+        int size = result.size();
+        result.erase(size - 1);
+        result.erase(size - 2);
+    }
+
+    reset();
+
+    return result;
 }
 
 } // namespace time

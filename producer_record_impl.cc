@@ -17,6 +17,9 @@ void ProducerRecordImpl::run()
     running_ = true;
 
     VideoCapture cap(videoIndex_, cv::CAP_ANY);
+    // cap.set(cv::CAP_PROP_FRAME_WIDTH, 1920);
+    //  cap.set(cv::CAP_PROP_FRAME_HEIGHT, 1080);
+
     if (!cap.isOpened())
     {
         cout << "Cannot open camera\n";
@@ -29,13 +32,14 @@ void ProducerRecordImpl::run()
     {
         // 擷取影像
         bool ret = cap.read(frame); // or cap >> frame;
-
+        cv::flip(frame, frame, 1);  // 0: x轴翻转  1: y轴翻转  2: 同时翻转
+        // imshow("image", frame);
         if (!ret)
         {
-            LOG_DEBUG("Can't receive frame (stream end?). Exiting ...");
+            LOG_ERROR("Can't receive frame (stream end?). Exiting ...");
             break;
         }
-
+        LOG_TRACE("[frame] w: {}, h:{}", frame.cols, frame.rows);
         auto consumers = getRecordConsumers();
         for (auto it = consumers.begin(); it != consumers.end(); ++it)
         {
