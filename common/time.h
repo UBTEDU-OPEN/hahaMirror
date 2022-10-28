@@ -13,6 +13,7 @@ uint64_t getCurrentTime();
 uint64_t getCurrentMilliTime();
 std::string timeFormatYMD();
 std::string timeFormatString();
+std::string caculateFPS();
 void updateNtpTime();
 
 class TimeConsumingAnalysis
@@ -30,10 +31,9 @@ public:
     void addTimePoint();
 
     std::string print();
-
-private:
     void reset();
 
+private:
     std::vector<std::pair<std::string, uint64_t>> points_;
     std::string lastpointname_;
     int64_t lastpointtime_;

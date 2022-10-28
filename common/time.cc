@@ -1,11 +1,9 @@
 #include "time.h"
 
-#include "common/logging.h"
 #include <arpa/inet.h>
 #include <assert.h>
 #include <endian.h>
 #include <errno.h>
-#include <iostream>
 #include <netdb.h>
 #include <string.h>
 #include <sys/select.h>
@@ -13,6 +11,10 @@
 #include <sys/time.h>
 #include <time.h>
 #include <unistd.h>
+
+#include <iostream>
+
+#include "logging.h"
 
 namespace common
 {
@@ -207,7 +209,8 @@ static int get_ntp_packet(void *buf, size_t *size) //构建并发送NTP请求报
     return 0;
 }
 
-static double get_rrt(const struct ntphdr *ntp, const struct timeval *recvtv) //往返时延
+static double get_rrt(const struct ntphdr *ntp,
+                      const struct timeval *recvtv) //往返时延
 {
     double t1, t2, t3, t4;
 
@@ -219,7 +222,8 @@ static double get_rrt(const struct ntphdr *ntp, const struct timeval *recvtv) //
     return (t4 - t1) - (t3 - t2);
 }
 
-static double get_offset(const struct ntphdr *ntp, const struct timeval *recvtv) //偏移量
+static double get_offset(const struct ntphdr *ntp,
+                         const struct timeval *recvtv) //偏移量
 {
     double t1, t2, t3, t4;
 
@@ -383,6 +387,24 @@ std::string TimeConsumingAnalysis::print()
     reset();
 
     return result;
+}
+
+std::string caculateFPS()
+{
+    static int count = 0;
+    static int64_t start_time = getCurrentMilliTime();
+
+    ++count;
+    if (getCurrentMilliTime() - start_time > 1000)
+    {
+        int diff_time = getCurrentMilliTime() - start_time;
+        int fps = count * 1000 / diff_time;
+        return std::to_string(fps);
+        count = 0;
+        start_time = getCurrentMilliTime();
+    }
+
+    return "";
 }
 
 } // namespace time

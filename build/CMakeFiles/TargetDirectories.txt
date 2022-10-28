@@ -1,0 +1,9 @@
+/home/ubt/code/Qt/hahaMirror/build/CMakeFiles/edit_cache.dir
+/home/ubt/code/Qt/hahaMirror/build/CMakeFiles/rebuild_cache.dir
+/home/ubt/code/Qt/hahaMirror/build/common/CMakeFiles/common.dir
+/home/ubt/code/Qt/hahaMirror/build/common/CMakeFiles/edit_cache.dir
+/home/ubt/code/Qt/hahaMirror/build/common/CMakeFiles/rebuild_cache.dir
+/home/ubt/code/Qt/hahaMirror/build/src/CMakeFiles/hahaMirror.dir
+/home/ubt/code/Qt/hahaMirror/build/src/CMakeFiles/edit_cache.dir
+/home/ubt/code/Qt/hahaMirror/build/src/CMakeFiles/rebuild_cache.dir
+/home/ubt/code/Qt/hahaMirror/build/src/CMakeFiles/hahaMirror_autogen.dir
