@@ -11,6 +11,8 @@ namespace cv
 class Mat;
 }
 
+class HahaUi;
+
 class ProducerRecordImpl : public ProducerRecord
 {
 public:
@@ -21,6 +23,7 @@ public:
     void stopServer() override;
 
     void runInMainThread() { run(); }
+    void setHahaUi(HahaUi *hahaui) { hahaUi_ = hahaui; }
 
 private:
     void init();
@@ -29,6 +32,7 @@ private:
     bool running_;
     std::thread *thread_;
     int videoIndex_;
+    HahaUi *hahaUi_;
 };
 
 #endif // JUMP_CORE_PRODUCER_RECORD_IMPL_H

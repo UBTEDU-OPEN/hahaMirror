@@ -7,6 +7,7 @@
 #include "facedetect.h"
 #include "faceidentify.h"
 #include "hahacore.h"
+#include "hahaui.h"
 #include "playcamera.h"
 #include "producer_record_impl.h"
 #include "websocket_server.h"
@@ -40,6 +41,7 @@ protected slots:
     void slot_getHahaImage1(cv::Mat mat);
     void slot_setHahaEffect();
     void slot_closeWindow();
+    void slot_faceCountChanged(int cur, int last);
 
 private:
     void init();
@@ -52,6 +54,7 @@ private:
 
     Ui::MainWindow *ui;
     bool pressed_;
+    int lastEffect_;
     QPoint m_point;
     QMenu *rootMenu_;
     QMenu *hahaMenu_;
@@ -64,5 +67,6 @@ private:
     FaceDetect *facedetect_;
     Hahacore *hahaCore_;
     FaceIdentify *faceIdentify_;
+    HahaUi *hahaUi_;
 };
 #endif // MAINWINDOW_H

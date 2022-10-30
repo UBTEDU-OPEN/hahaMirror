@@ -14,6 +14,7 @@ MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
     , pressed_(false)
+    , lastEffect_(Face)
     , cameraServer_(0)
 {
     ui->setupUi(this);
@@ -53,15 +54,17 @@ void MainWindow::init()
     faceIdentify_->setHttpUrl("http://exhibit-pre.ubtrobot.com:60901/api/v1/faceIdentify");
     faceIdentify_->start();
 
+    hahaUi_ = new HahaUi(this);
+    hahaUi_->setResolution(cv::Size(480, 640));
+
     cameraServer_ = new ProducerRecordImpl;
     cameraServer_->startServer();
     cameraServer_->registerRecordConsumer(cameraClient_);
     cameraServer_->registerRecordConsumer(facedetect_);
     cameraServer_->registerRecordConsumer(hahaCore_);
     cameraServer_->registerRecordConsumer(faceIdentify_);
+    // cameraServer_->setHahaUi(hahaUi_);
     initConnect();
-
-    // slot_setHahaEffect(ui->cbx_face_effect->currentText());
 }
 
 void MainWindow::initConnect()
@@ -77,6 +80,10 @@ void MainWindow::initConnect()
             this,
             &MainWindow::slot_getHahaImage1,
             Qt::QueuedConnection);
+    connect(facedetect_,
+            &FaceDetect::sig_faceCountChanged,
+            this,
+            &MainWindow::slot_faceCountChanged);
 }
 
 void MainWindow::start()
@@ -136,12 +143,36 @@ void MainWindow::slot_getHahaImage(QImage img)
     ui->lbl_video->setPixmap(QPixmap::fromImage(img));
 }
 
+void MainWindow::slot_faceCountChanged(int cur, int last)
+{
+    if (lastEffect_ == None || cur < last)
+    {
+        return;
+    }
+
+    time(NULL);
+    int e = rand() % 3;
+    while (e == lastEffect_)
+    {
+        e = rand() % 3;
+    }
+
+    if (hahaCore_)
+    {
+        hahaCore_->setHahaEffect((HahaEffect) e);
+    }
+
+    // LOG_DEBUG("effect: {}", e);
+
+    lastEffect_ = e;
+}
+
 void MainWindow::fillRects(cv::Mat mat, std::vector<FaceDetectResult> &rects)
 {
     for (auto it = rects.begin(); it != rects.end(); ++it)
     {
         cv::rectangle(mat, it->bigFaceRect, cv::Scalar(115, 210, 22), 2);
-        cv::rectangle(mat, it->algorithmFaceRect, cv::Scalar(115, 210, 22), 2);
+        // cv::rectangle(mat, it->algorithmFaceRect, cv::Scalar(115, 210, 22), 2);
     }
 }
 
@@ -172,6 +203,10 @@ void MainWindow::slot_setHahaEffect()
     {
         hahaCore_->setHahaEffect(e_effect);
     }
+
+    //   LOG_DEBUG("effect: {}", e_effect);
+
+    lastEffect_ = e_effect;
 }
 
 void MainWindow::slot_getHahaImage1(cv::Mat mat)

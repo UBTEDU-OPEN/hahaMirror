@@ -28,6 +28,7 @@ set(SRC_LISTS
     facedetect.cpp 
     faceidentify.cpp 
     hahacore.cpp 
+    hahaui.cpp
     http_client.cc 
     image.cpp 
     imageoverlay.cpp 

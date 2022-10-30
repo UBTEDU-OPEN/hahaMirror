@@ -1,6 +1,7 @@
 #include "producer_record_impl.h"
 #include "common/logging.h"
 #include "common/time.h"
+#include "hahaui.h"
 #include <librealsense2/rs.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/opencv.hpp>
@@ -70,7 +71,7 @@ void ProducerRecordImpl::run()
         {
             int diff_time = getCurrentMilliTime() - start_time;
             int fps = count * 1000 / diff_time;
-            LOG_DEBUG("ProducerRecordImpl FPS: {}", fps);
+            LOG_TRACE("ProducerRecordImpl FPS: {}", fps);
             count = 0;
             start_time = getCurrentMilliTime();
         }
@@ -97,6 +98,13 @@ void ProducerRecordImpl::run()
             break;
         }
 
+        cv::Rect rect(0, 0, clone.cols, clone.rows);
+        if (hahaUi_)
+        {
+            hahaUi_->addImage(clone, rect, HahaUi::Mirror);
+            cv::imshow("mirrorImage", clone);
+        }
+
         auto consumers = getRecordConsumers();
         for (auto it = consumers.begin(); it != consumers.end(); ++it)
         {
@@ -113,6 +121,7 @@ ProducerRecordImpl::ProducerRecordImpl(int videoIndex)
     : running_(false)
     , thread_(nullptr)
     , videoIndex_(videoIndex)
+    , hahaUi_(nullptr)
 {
 }
 
