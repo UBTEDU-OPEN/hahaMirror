@@ -29,6 +29,7 @@ public:
     void setFaceDetectObject(FaceDetect *faceDetectObj) { faceDetectObj_ = faceDetectObj; }
     void setWebsocketServerOject(WebsocketServer *server);
     void setHttpUrl(std::string url) { url_ = url; }
+    void setDetectStatus(bool flag) { detectStatus_ = flag; }
 
 private:
     void init();
@@ -47,6 +48,7 @@ private:
     std::mutex matMutex_;
     FaceDetect *faceDetectObj_;
     WebsocketServer *webServer_;
+    bool detectStatus_;
 };
 
 #endif // FACEIDENTIFY_H

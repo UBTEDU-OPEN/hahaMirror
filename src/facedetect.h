@@ -6,6 +6,7 @@
 #include <QObject>
 
 #include "consumer_base.h"
+#include "resolution.h"
 
 struct FaceDetectResult
 {
@@ -39,6 +40,9 @@ public:
         return person_results_;
     }
 
+    void setResolutionObject(Resolution *object) { resolutionObject_ = object; }
+    void setDetectStatus(bool flag) { detectStatus_ = flag; }
+
 signals:
     void sig_faceCountChanged(int cur, int last);
 
@@ -56,6 +60,9 @@ private:
     std::thread *taskThread_;
     std::mutex matMutex_;
     std::mutex personMutex_;
+    Resolution *resolutionObject_;
+    cv::Rect validArea_;
+    bool detectStatus_;
 };
 
 #endif // FACEDETECT_H

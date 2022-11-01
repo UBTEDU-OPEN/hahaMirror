@@ -36,6 +36,7 @@ set(SRC_LISTS
     mainwindow.cpp 
     playcamera.cpp 
     producer_record_impl.cc 
+    resolution.cpp
     websocket_server.cc
 
 

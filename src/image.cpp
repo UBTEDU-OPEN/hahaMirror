@@ -75,7 +75,7 @@ QRect rect2qrect(const cv::Rect rect)
 
 cv::Mat QImageToCvMat(const QImage &inImage, bool inCloneImageData)
 {
-    std::cout << inImage.format() << std::endl;
+    // std::cout << inImage.format() << std::endl;
     switch (inImage.format())
     {
     // 8-bit, 4 channel

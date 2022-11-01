@@ -42,13 +42,18 @@ static void rotate_arbitrarily_angle(Mat &src, Mat &dst, float angle)
     dst = Mat(dst, rect);
 }
 
+void ProducerRecordImpl::setSize(cv::Size resolution)
+{
+    resolution_ = resolution;
+}
+
 void ProducerRecordImpl::run()
 {
     running_ = true;
 
     VideoCapture cap(videoIndex_, cv::CAP_ANY);
-    // cap.set(cv::CAP_PROP_FRAME_WIDTH, 1280);
-    // cap.set(cv::CAP_PROP_FRAME_HEIGHT, 720);
+    cap.set(cv::CAP_PROP_FRAME_WIDTH, 1920);
+    cap.set(cv::CAP_PROP_FRAME_HEIGHT, 1080);
 
     if (!cap.isOpened())
     {
@@ -82,12 +87,17 @@ void ProducerRecordImpl::run()
 
         bool ret = cap.read(frame); // or cap >> frame;
         anaylis.addTimePoint("readframe");
-
+        // LOG_DEBUG("before: {},{}", frame.cols, frame.rows);
         cv::flip(frame, frame, 1); // 0: x轴翻转  1: y轴翻转  2: 同时翻转
         anaylis.addTimePoint("flip");
         cv::Mat clone;
         rotate_arbitrarily_angle(frame, clone, 90);
         anaylis.addTimePoint("rotate");
+
+        static cv::Size size(1080, 1920);
+        cv::resize(clone, clone, size);
+
+        //LOG_DEBUG("after: {},{}", clone.cols, clone.rows);
 
         // LOG_DEBUG(anaylis.print());
         // LOG_DEBUG("w: {}, h: {}", clone.cols, clone.rows);
@@ -102,7 +112,7 @@ void ProducerRecordImpl::run()
         if (hahaUi_)
         {
             hahaUi_->addImage(clone, rect, HahaUi::Mirror);
-            cv::imshow("mirrorImage", clone);
+            // cv::imshow("ProducerRecordImpl", clone);
         }
 
         auto consumers = getRecordConsumers();
@@ -151,7 +161,14 @@ ProducerRecordImpl::~ProducerRecordImpl()
 void ProducerRecordImpl::stopServer()
 {
     running_ = false;
-    thread_->join();
-    delete thread_;
-    thread_ = NULL;
+    if (thread_)
+    {
+        if (thread_->joinable())
+        {
+            thread_->join();
+        }
+
+        delete thread_;
+    }
+    thread_ = nullptr;
 }

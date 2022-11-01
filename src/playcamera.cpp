@@ -27,9 +27,14 @@ void PlayCamera::start()
 void PlayCamera::stop()
 {
     running_ = false;
-    if (taskThread_ && taskThread_->joinable())
+    if (taskThread_)
     {
-        taskThread_->join();
+        if (taskThread_->joinable())
+        {
+            taskThread_->join();
+        }
+
+        delete taskThread_;
     }
 }
 

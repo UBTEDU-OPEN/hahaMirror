@@ -240,15 +240,22 @@ void WebsocketServer::start(uint16_t port)
 void WebsocketServer::stop()
 {
     running_ = false;
-    if (sendThread_ && sendThread_->joinable())
+    if (sendThread_)
     {
-        sendThread_->join();
+        if (sendThread_->joinable())
+        {
+            sendThread_->join();
+        }
+
         delete sendThread_;
     }
 
-    if (connectThread_ && connectThread_->joinable())
+    if (connectThread_)
     {
-        connectThread_->join();
+        if (connectThread_->joinable())
+        {
+            connectThread_->join();
+        }
         delete connectThread_;
     }
 }

@@ -1,26 +1,34 @@
 #include "mainwindow.h"
 
 #include <opencv2/opencv.hpp>
+#include <QDesktopWidget>
 #include <QMenu>
 #include <QMetaType>
 #include <QMouseEvent>
+#include <QScreen>
+#include <QTimer>
 
 #include "common/logging.h"
 #include "common/time.h"
 #include "image.h"
 #include "ui_mainwindow.h"
 
+#include <QPainter>
+
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
     , pressed_(false)
     , lastEffect_(Face)
-    , cameraServer_(0)
+    , resolution_(cv::Size{1080, 1920})
+    , cameraServer_(nullptr)
+    , sleeping_(true)
 {
     ui->setupUi(this);
+    common::log::initLogger();
     registerType();
     initUi();
-    resize(480, 640);
+
     start();
 }
 
@@ -36,10 +44,10 @@ void MainWindow::registerType()
 
 void MainWindow::init()
 {
-    common::log::initLogger();
+    resolutionObject_ = new Resolution(resolution_);
 
     webServer_ = new WebsocketServer;
-    webServer_->start(9005);
+    webServer_->start(9004);
 
     cameraClient_ = new PlayCamera;
     cameraClient_->start();
@@ -55,7 +63,8 @@ void MainWindow::init()
     faceIdentify_->start();
 
     hahaUi_ = new HahaUi(this);
-    hahaUi_->setResolution(cv::Size(480, 640));
+    // hahaUi_->setSleepStatus(false);
+    //hahaUi_->setResolutionObject(resolutionObject_);
 
     cameraServer_ = new ProducerRecordImpl;
     cameraServer_->startServer();
@@ -63,7 +72,12 @@ void MainWindow::init()
     cameraServer_->registerRecordConsumer(facedetect_);
     cameraServer_->registerRecordConsumer(hahaCore_);
     cameraServer_->registerRecordConsumer(faceIdentify_);
-    // cameraServer_->setHahaUi(hahaUi_);
+    cameraServer_->setHahaUi(hahaUi_);
+
+    sleepTimer_ = new QTimer(this);
+    sleepTimer_->setInterval(60 * 1000);
+    sleepTimer_->start();
+
     initConnect();
 }
 
@@ -84,6 +98,7 @@ void MainWindow::initConnect()
             &FaceDetect::sig_faceCountChanged,
             this,
             &MainWindow::slot_faceCountChanged);
+    connect(sleepTimer_, &QTimer::timeout, this, &MainWindow::slot_uiSleep);
 }
 
 void MainWindow::start()
@@ -96,14 +111,40 @@ void MainWindow::initUi()
     setAttribute(Qt::WA_TranslucentBackground); //背景透明
     setWindowFlags(Qt::FramelessWindowHint | windowFlags());
 
+    selectScreen();
     initMenu();
-    // showMaximized();
+}
 
-    // ui->cbx_face_effect->addItems(QStringList() << "eyes"
-    //                                                << "mouth"
-    //                                                << "face");
+void MainWindow::selectScreen()
+{
+    int count = QGuiApplication::screens().count();
+    QRect geometry;
+    QScreen *mScreen;
 
-    // ui->cbx_face_effect->installEventFilter(this);
+    for (int i = 0; i < count; ++i)
+    {
+        mScreen = QGuiApplication::screens()[i];
+        geometry = mScreen->geometry();
+        if (geometry.width() > geometry.height())
+        {
+            if (i == count - 1)
+            {
+                LOG_ERROR("please adjust screen resolution!!");
+                return;
+            }
+        }
+        else
+        {
+            deskRect_ = geometry;
+            setGeometry(geometry);
+            //        LOG_DEBUG("x:{},  y:{} , w:{}, h:{}",
+            //                  geometry.x(),
+            //                  geometry.y(),
+            //                  geometry.width(),
+            //                  geometry.height());
+            return;
+        }
+    }
 }
 
 void MainWindow::initMenu()
@@ -133,9 +174,17 @@ void MainWindow::stop()
     cameraServer_->stopServer();
     cameraClient_->stop();
     facedetect_->stop();
-    faceIdentify_->stop();
     hahaCore_->stop();
+    faceIdentify_->stop();
     webServer_->stop();
+
+    sleepTimer_->stop();
+}
+
+void MainWindow::slot_uiSleep()
+{
+    faceIdentify_->setDetectStatus(false);
+    sleeping_ = true;
 }
 
 void MainWindow::slot_getHahaImage(QImage img)
@@ -145,6 +194,27 @@ void MainWindow::slot_getHahaImage(QImage img)
 
 void MainWindow::slot_faceCountChanged(int cur, int last)
 {
+    //  LOG_DEBUG("slot_faceCountChanged");
+    if (cur == 0)
+    {
+        if (!sleepTimer_->isActive())
+        {
+            sleepTimer_->start();
+        }
+    }
+    else
+    {
+        if (sleepTimer_->isActive())
+        {
+            sleepTimer_->stop();
+        }
+        if (sleeping_)
+        {
+            sleeping_ = false;
+            faceIdentify_->setDetectStatus(true);
+        }
+    }
+
     if (lastEffect_ == None || cur < last)
     {
         return;
@@ -160,9 +230,10 @@ void MainWindow::slot_faceCountChanged(int cur, int last)
     if (hahaCore_)
     {
         hahaCore_->setHahaEffect((HahaEffect) e);
+        hahaUi_->changeRobot();
     }
 
-    // LOG_DEBUG("effect: {}", e);
+    //  LOG_DEBUG("effect: {}, cur: {}, last: {}", e, cur, last);
 
     lastEffect_ = e;
 }
@@ -172,7 +243,7 @@ void MainWindow::fillRects(cv::Mat mat, std::vector<FaceDetectResult> &rects)
     for (auto it = rects.begin(); it != rects.end(); ++it)
     {
         cv::rectangle(mat, it->bigFaceRect, cv::Scalar(115, 210, 22), 2);
-        // cv::rectangle(mat, it->algorithmFaceRect, cv::Scalar(115, 210, 22), 2);
+        cv::rectangle(mat, it->algorithmFaceRect, cv::Scalar(115, 210, 22), 2);
     }
 }
 
@@ -211,13 +282,24 @@ void MainWindow::slot_setHahaEffect()
 
 void MainWindow::slot_getHahaImage1(cv::Mat mat)
 {
-    auto rects = facedetect_->getCurrentPersonResults();
-    fillRects(mat, rects);
-
     std::string rate = common::time::caculateFPS();
     if (rate != "")
     {
         LOG_TRACE("MainWindow Fps: {}!!", rate);
+    }
+
+    auto rects = facedetect_->getCurrentPersonResults();
+    fillRects(mat, rects);
+    hahaUi_->addImage(mat, cv::Rect(), HahaUi::Effect);
+    if (sleeping_)
+    {
+        hahaUi_->addImage(mat, cv::Rect(), HahaUi::Sleep);
+    }
+
+    static cv::Size size(deskRect_.width(), deskRect_.height());
+    if (deskRect_.width() != mat.cols || deskRect_.height() != mat.rows)
+    {
+        cv::resize(mat, mat, size);
     }
 
     QImage img = image::mat2qim(mat);

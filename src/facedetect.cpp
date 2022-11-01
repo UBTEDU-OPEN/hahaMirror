@@ -4,6 +4,7 @@
 #include <queue>
 
 #include "common/logging.h"
+#include "common/processinfo.h"
 #include "common/time.h"
 #include "main_haha/include/faceRec/face_recognition_api.h"
 
@@ -11,9 +12,11 @@ using namespace HaHaFaceVision;
 
 FaceDetect::FaceDetect()
     : running_(false)
-    , models_path_("/home/ubt/code/Qt/hahaMirror/algorithm/model")
+    , models_path_(common::ProcessInfo::exeDirPath() + "/model/")
     , face_handle_(0)
     , max_face_num_(6)
+    , validArea_(107, 287, 866, 1346)
+    , detectStatus_(true)
 {
 }
 
@@ -24,7 +27,7 @@ FaceDetect::~FaceDetect()
 
 void FaceDetect::init()
 {
-    LOG_DEBUG("@@@@@ faceDetect version: {} @@@@@", HaHaFaceVision::UBT_AIGetFRVersion_x86());
+    LOG_DEBUG("@@@@@ faceDete ct version: {} @@@@@", HaHaFaceVision::UBT_AIGetFRVersion_x86());
 
     HaHaFaceVision::FACE_CONFIG_PARAMS config_params;
     config_params.imageWidth = 2000;
@@ -46,11 +49,15 @@ void FaceDetect::start()
 void FaceDetect::stop()
 {
     running_ = false;
-    if (taskThread_ && taskThread_->joinable())
+    if (taskThread_)
     {
-        taskThread_->join();
+        if (taskThread_->joinable())
+        {
+            taskThread_->join();
+        }
+
+        delete taskThread_;
     }
-    taskThread_ = nullptr;
 }
 
 static cv::Rect calculateFaceRect(const cv::Rect rect, const int max_width, const int max_height)
@@ -109,7 +116,7 @@ void FaceDetect::handleTaskCallback()
         analysis.addTimePoint();
 
         matMutex_.lock();
-        if (person_mat_.empty())
+        if (person_mat_.empty() || detectStatus_ == false)
         {
             matMutex_.unlock();
             usleep(1 * 1000);
@@ -118,10 +125,13 @@ void FaceDetect::handleTaskCallback()
         cv::Mat mat = person_mat_.clone();
         matMutex_.unlock();
 
+        //  cv::imshow("detect_exception.png", mat);
+
         analysis.addTimePoint("get mutex");
 
         static const int sk_max_width = mat.cols;
         static const int sk_max_height = mat.rows;
+        // LOG_DEBUG("sk_max_width: {}, sk_max_height: {}", sk_max_width, sk_max_height);
         std::vector<FACE_DET_SINGLE_RESULT> faceResults;
         HaHaFaceVision::UBT_AIFaceDetection(face_handle_, mat, faceResults);
         const int csize = faceResults.size();
@@ -129,15 +139,16 @@ void FaceDetect::handleTaskCallback()
         // LOG_DEBUG("size: {}", size);
         std::map<int, std::vector<int>> areas;
         std::priority_queue<int, std::vector<int>, std::less<int>> big_heap;
-        // LOG_DEBUG("init: {}", csize);
+        //  LOG_DEBUG("init: {}", csize);
         for (int i = 0; i < csize; ++i)
         {
             auto shapes = faceResults[i].faceShape;
             int s = 0;
             for (; s < 5; ++s)
             {
-                if (shapes[s].x < 0 || shapes[s].x > sk_max_width || shapes[s].y < 0
-                    || shapes[s].y > sk_max_height)
+                //                if (shapes[s].x < 0 || shapes[s].x > sk_max_width || shapes[s].y < 0
+                //                    || shapes[s].y > sk_max_height)
+                if (!validArea_.contains(shapes[s]))
                 {
                     break;
                 }
@@ -163,8 +174,7 @@ void FaceDetect::handleTaskCallback()
                 areas[area].push_back(i);
             }
         }
-        // LOG_DEBUG("end: {}", size);
-        static int last_face_num = 0;
+        //    LOG_DEBUG("end: {}", size);
 
         std::vector<FaceDetectResult> results;
         int face_num = std::min(size, max_face_num_);
@@ -189,11 +199,32 @@ void FaceDetect::handleTaskCallback()
             }
         }
 
-        if (face_num != last_face_num)
+        // LOG_DEBUG("cur: {}, last: {}", face_num, last_face_num);
+
+        static int face_count = 0;
+        static int last_face_num = 0;
+        static int last_face_num_point = 0;
+        if (face_num == last_face_num)
         {
-            emit sig_faceCountChanged(face_num, last_face_num);
-            last_face_num = face_num;
+            ++face_count;
+            if (face_count > 30)
+            {
+                if (face_num != last_face_num_point)
+                {
+                    emit sig_faceCountChanged(face_num, last_face_num_point);
+                    last_face_num_point = face_num;
+                }
+                face_count = 0;
+            }
         }
+        else
+        {
+            face_count = 0;
+        }
+
+        // LOG_DEBUG("cur: {}, last: {}, face_count: {}", face_num, last_face_num_point, face_count);
+
+        last_face_num = face_num;
 
         personMutex_.lock();
         person_results_.swap(results);

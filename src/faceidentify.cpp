@@ -9,11 +9,12 @@
 FaceIdentify::FaceIdentify()
     : running_(false)
     , frame_rate_(10)
-    , interval_time_(100)
+    , interval_time_(1000)
     , url_("")
     , taskThread_(nullptr)
     , faceDetectObj_(nullptr)
     , webServer_(nullptr)
+    , detectStatus_(true)
 {
 }
 
@@ -31,9 +32,14 @@ void FaceIdentify::start()
 void FaceIdentify::stop()
 {
     running_ = false;
-    if (taskThread_ && taskThread_->joinable())
+    if (taskThread_)
     {
-        taskThread_->join();
+        if (taskThread_->joinable())
+        {
+            taskThread_->join();
+        }
+
+        delete taskThread_;
     }
 }
 
@@ -124,6 +130,7 @@ bool FaceIdentify::parseHttpResponse(std::string &response, ShowFaceInfo &info)
 
 void FaceIdentify::httpIdentifyRequest(cv::Mat mat)
 {
+    // cv::imshow("face", mat);
     std::vector<uint8_t> sourceImg;
     sourceImg.resize(2 * 1024 * 1024);
     imencode(".jpeg", mat, sourceImg);
@@ -163,7 +170,7 @@ void FaceIdentify::handleTaskCallback()
     while (running_)
     {
         matMutex_.lock();
-        if (faceMat_.empty())
+        if (faceMat_.empty() || detectStatus_ == false)
         {
             matMutex_.unlock();
             std::this_thread::sleep_for(std::chrono::milliseconds(1));

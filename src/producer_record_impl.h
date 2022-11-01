@@ -6,11 +6,6 @@
 #include <thread>
 #include <vector>
 
-namespace cv
-{
-class Mat;
-}
-
 class HahaUi;
 
 class ProducerRecordImpl : public ProducerRecord
@@ -24,6 +19,7 @@ public:
 
     void runInMainThread() { run(); }
     void setHahaUi(HahaUi *hahaui) { hahaUi_ = hahaui; }
+    void setSize(cv::Size resolution);
 
 private:
     void init();
@@ -33,6 +29,7 @@ private:
     std::thread *thread_;
     int videoIndex_;
     HahaUi *hahaUi_;
+    cv::Size resolution_;
 };
 
 #endif // JUMP_CORE_PRODUCER_RECORD_IMPL_H
