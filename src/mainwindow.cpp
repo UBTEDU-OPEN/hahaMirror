@@ -22,7 +22,7 @@ MainWindow::MainWindow(QWidget *parent)
     , lastEffect_(Face)
     , resolution_(cv::Size{1080, 1920})
     , cameraServer_(nullptr)
-    , sleeping_(true)
+    , sleepStatus_(Sleeping)
 {
     ui->setupUi(this);
     common::log::initLogger();
@@ -62,7 +62,7 @@ void MainWindow::init()
     faceIdentify_->setHttpUrl("http://exhibit-pre.ubtrobot.com:60901/api/v1/faceIdentify");
     faceIdentify_->start();
 
-    hahaUi_ = new HahaUi(this);
+    hahaUi_ = new HahaUi;
     // hahaUi_->setSleepStatus(false);
     //hahaUi_->setResolutionObject(resolutionObject_);
 
@@ -75,8 +75,12 @@ void MainWindow::init()
     cameraServer_->setHahaUi(hahaUi_);
 
     sleepTimer_ = new QTimer(this);
-    sleepTimer_->setInterval(60 * 1000);
+    sleepTimer_->setInterval(5 * 1000);
     sleepTimer_->start();
+
+    showTimer_ = new QTimer(this);
+    showTimer_->setInterval(1000 / 24);
+    showTimer_->start();
 
     initConnect();
 }
@@ -99,6 +103,7 @@ void MainWindow::initConnect()
             this,
             &MainWindow::slot_faceCountChanged);
     connect(sleepTimer_, &QTimer::timeout, this, &MainWindow::slot_uiSleep);
+    connect(showTimer_, &QTimer::timeout, this, &MainWindow::slot_showtimeout);
 }
 
 void MainWindow::start()
@@ -184,7 +189,9 @@ void MainWindow::stop()
 void MainWindow::slot_uiSleep()
 {
     faceIdentify_->setDetectStatus(false);
-    sleeping_ = true;
+    statusMutex_.lock();
+    sleepStatus_ = Sleeping;
+    statusMutex_.unlock();
 }
 
 void MainWindow::slot_getHahaImage(QImage img)
@@ -194,7 +201,7 @@ void MainWindow::slot_getHahaImage(QImage img)
 
 void MainWindow::slot_faceCountChanged(int cur, int last)
 {
-    //  LOG_DEBUG("slot_faceCountChanged");
+    // LOG_DEBUG("slot_faceCountChanged");
     if (cur == 0)
     {
         if (!sleepTimer_->isActive())
@@ -208,10 +215,18 @@ void MainWindow::slot_faceCountChanged(int cur, int last)
         {
             sleepTimer_->stop();
         }
-        if (sleeping_)
+
+        statusMutex_.lock();
+        if (sleepStatus_ == Sleeping)
         {
-            sleeping_ = false;
+            sleepStatus_ = Waving;
+            hahaUi_->setCurrentMirrorBrokenIndex(0);
+            statusMutex_.unlock();
             faceIdentify_->setDetectStatus(true);
+        }
+        else
+        {
+            statusMutex_.unlock();
         }
     }
 
@@ -230,7 +245,7 @@ void MainWindow::slot_faceCountChanged(int cur, int last)
     if (hahaCore_)
     {
         hahaCore_->setHahaEffect((HahaEffect) e);
-        hahaUi_->changeRobot();
+        hahaUi_->changeRobotStrategy();
     }
 
     //  LOG_DEBUG("effect: {}, cur: {}, last: {}", e, cur, last);
@@ -242,8 +257,8 @@ void MainWindow::fillRects(cv::Mat mat, std::vector<FaceDetectResult> &rects)
 {
     for (auto it = rects.begin(); it != rects.end(); ++it)
     {
-        cv::rectangle(mat, it->bigFaceRect, cv::Scalar(115, 210, 22), 2);
-        cv::rectangle(mat, it->algorithmFaceRect, cv::Scalar(115, 210, 22), 2);
+        //  cv::rectangle(mat, it->bigFaceRect, cv::Scalar(115, 210, 22), 2);
+        //  cv::rectangle(mat, it->algorithmFaceRect, cv::Scalar(115, 210, 22), 2);
     }
 }
 
@@ -280,7 +295,51 @@ void MainWindow::slot_setHahaEffect()
     lastEffect_ = e_effect;
 }
 
-void MainWindow::slot_getHahaImage1(cv::Mat mat)
+void MainWindow::checkUiStatus()
+{
+    statusMutex_.lock();
+    SleepStatus status = sleepStatus_;
+    statusMutex_.unlock();
+
+    if (status == Waving)
+    {
+        static int lastIndex = 0;
+        int index = hahaUi_->getMirrorBrokenIndex();
+        if (index < lastIndex)
+        {
+            statusMutex_.lock();
+            sleepStatus_ = Waved;
+            statusMutex_.unlock();
+            lastIndex = 0;
+
+            hahaUi_->setCurrentTipAppearIndex(0);
+        }
+        else
+        {
+            lastIndex = index;
+        }
+
+        // LOG_DEBUG("index: {}", index);
+    }
+    else if (status == Waved)
+    {
+        static int lastIndex = 0;
+        int index = hahaUi_->getTipAppearIndex();
+        if (index < lastIndex)
+        {
+            statusMutex_.lock();
+            sleepStatus_ = Work;
+            statusMutex_.unlock();
+            lastIndex = 0;
+        }
+        else
+        {
+            lastIndex = index;
+        }
+    }
+}
+
+void MainWindow::slot_showtimeout()
 {
     std::string rate = common::time::caculateFPS();
     if (rate != "")
@@ -288,12 +347,47 @@ void MainWindow::slot_getHahaImage1(cv::Mat mat)
         LOG_TRACE("MainWindow Fps: {}!!", rate);
     }
 
+    if (curMat_.empty())
+    {
+        return;
+    }
+
+    matMutex_.lock();
+    cv::Mat mat = curMat_.clone();
+    matMutex_.unlock();
+
     auto rects = facedetect_->getCurrentPersonResults();
     fillRects(mat, rects);
-    hahaUi_->addImage(mat, cv::Rect(), HahaUi::Effect);
-    if (sleeping_)
+    // hahaUi_->addImage(mat, cv::Rect(), HahaUi::Effect);
+    statusMutex_.lock();
+    SleepStatus status = sleepStatus_;
+    statusMutex_.unlock();
+    // LOG_DEBUG("status: {}", status);
+    if (status == Waving || status == Waved)
     {
-        hahaUi_->addImage(mat, cv::Rect(), HahaUi::Sleep);
+        checkUiStatus();
+
+        statusMutex_.lock();
+        status = sleepStatus_;
+        statusMutex_.unlock();
+    }
+
+    if (status == Sleeping)
+    {
+        hahaUi_->addImage(mat, HahaUi::Sleep);
+    }
+    else if (status == Waving)
+    {
+        hahaUi_->addImage(mat, HahaUi::MirrorBroken);
+    }
+    else if (status == Waved)
+    {
+        //LOG_DEBUG("waved");
+        hahaUi_->addImage(mat, HahaUi::RobotsMirrorLoopTipApper);
+    }
+    else if (status == Work)
+    {
+        hahaUi_->addImage(mat, HahaUi::RobotsMirrorLoopTipLoop);
     }
 
     static cv::Size size(deskRect_.width(), deskRect_.height());
@@ -302,6 +396,12 @@ void MainWindow::slot_getHahaImage1(cv::Mat mat)
         cv::resize(mat, mat, size);
     }
 
+    // std::cout << std::endl;
+
+    //    int count = 0;
+    //    std::string name = "/home/ubt/code/Qt/hahaMirror/png/frame_" + std::to_string(count++) + ".png";
+    //    cv::imwrite(name, mat);
+
     QImage img = image::mat2qim(mat);
     QPixmap pix = QPixmap::fromImage(img);
     ui->lbl_video->setPixmap(pix);
@@ -309,6 +409,18 @@ void MainWindow::slot_getHahaImage1(cv::Mat mat)
 
     cv::Rect rect;
     rect.empty();
+}
+
+void MainWindow::slot_getHahaImage1(cv::Mat mat)
+{
+    matMutex_.lock();
+    if (!curMat_.empty())
+    {
+        curMat_.release();
+    }
+    curMat_ = mat.clone();
+    mat.release();
+    matMutex_.unlock();
 }
 
 void MainWindow::mouseMoveEvent(QMouseEvent *event)

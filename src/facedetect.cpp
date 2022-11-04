@@ -155,7 +155,7 @@ void FaceDetect::handleTaskCallback()
             }
             if (s < 5)
             {
-                LOG_WARN("please keep whole face in screen, facefeature: {}!!", s);
+                LOG_TRACE("please keep whole face in screen, facefeature: {}!!", s);
                 --size; // 去掉不符合条件的人脸
                 continue;
             }

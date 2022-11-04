@@ -86,6 +86,11 @@ void ProducerRecordImpl::run()
         anaylis.addTimePoint();
 
         bool ret = cap.read(frame); // or cap >> frame;
+        if (!ret)
+        {
+            LOG_ERROR("Can't receive frame (stream end?). Exiting ...");
+            continue;
+        }
         anaylis.addTimePoint("readframe");
         // LOG_DEBUG("before: {},{}", frame.cols, frame.rows);
         cv::flip(frame, frame, 1); // 0: x轴翻转  1: y轴翻转  2: 同时翻转
@@ -102,16 +107,10 @@ void ProducerRecordImpl::run()
         // LOG_DEBUG(anaylis.print());
         // LOG_DEBUG("w: {}, h: {}", clone.cols, clone.rows);
         // imshow("image", frame);
-        if (!ret)
-        {
-            LOG_ERROR("Can't receive frame (stream end?). Exiting ...");
-            break;
-        }
 
-        cv::Rect rect(0, 0, clone.cols, clone.rows);
         if (hahaUi_)
         {
-            hahaUi_->addImage(clone, rect, HahaUi::Mirror);
+            hahaUi_->addImage(clone, HahaUi::MirrorLoop);
             // cv::imshow("ProducerRecordImpl", clone);
         }
 
@@ -121,7 +120,7 @@ void ProducerRecordImpl::run()
             (*it)->consumeRecord(clone, clone);
         }
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        // std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
 
     running_ = false;

@@ -37,6 +37,7 @@ set(SRC_LISTS
     playcamera.cpp 
     producer_record_impl.cc 
     resolution.cpp
+    robotui.cpp
     websocket_server.cc
 
 

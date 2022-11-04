@@ -2,231 +2,322 @@
 #include "common/logging.h"
 #include "common/processinfo.h"
 #include "image.h"
+#include <boost/filesystem.hpp>
 #include <QFontDatabase>
 #include <QPainter>
 #include <QPixmap>
+#include <QTime>
 
-/// 1080p 画质下，左： 107, 右 973, 上 277 ， 下 1643
+static void scanFilesUseBoost(const std::string &rootPath,
+                              std::vector<std::string> &container,
+                              std::string extension)
+{
+    //container.clear();
+    boost::filesystem::path fullpath(rootPath);
 
-const double HahaUi::leftMarginScale_ = 0.0991;
-const double HahaUi::rightMarginScale_ = 0.9009;
-const double HahaUi::upMarginScale_ = 0.1443;
-const double HahaUi::downMarginScale_ = 0.8557;
+    if (!boost::filesystem::exists(fullpath) || !boost::filesystem::is_directory(fullpath))
+    {
+        std::cerr << "File path not exist!" << std::endl;
+        return;
+    }
 
-const QPoint HahaUi::left_up_point(107, 565);
-const QPoint HahaUi::right_up_point(822, 445);
-const QPoint HahaUi::left_down_point(50, 1419);
-const QPoint HahaUi::right_down_point(735, 1438);
+    boost::filesystem::recursive_directory_iterator end_iter;
+    for (boost::filesystem::recursive_directory_iterator iter(fullpath); iter != end_iter; iter++)
+    {
+        try
+        {
+            if (boost::filesystem::is_directory(*iter))
+            {
+                std::cout << *iter << "is dir" << std::endl;
+                //scanFilesUseRecursive(iter->path().string(),container,extension); //if find file recursively
+            }
+            else
+            {
+                if (boost::filesystem::is_regular_file(*iter)
+                    && iter->path().extension() == extension)
+                    container.push_back(iter->path().string());
+                //                std::cout << *iter << " is a file" << std::endl;
+            }
+        }
+        catch (const std::exception &ex)
+        {
+            std::cerr << ex.what() << std::endl;
+            continue;
+        }
+    }
+}
 
-HahaUi::HahaUi(QWidget *parent)
-    : parent_(parent)
-    , imagePath_(common::ProcessInfo::exeDirPath() + "/image/")
-    , resolutionSize_(480, 640)
-    , curLeftRobots_(nullptr)
-    , curRightRobots_(nullptr)
-    , sleepStatus_(true)
+static bool GreaterEqSort(std::string filePath1, std::string filePath2)
+{
+    int len1 = filePath1.length();
+    int len2 = filePath2.length();
+    //    std::cout<<"len1:"<<len1<<" path:"<<filePath1<<std::endl;
+    //    std::cout<<"len2:"<<len2<<" path:"<<filePath2<<std::endl;
+    if (len1 < len2)
+    {
+        return false;
+    }
+    else if (len1 > len2)
+    {
+        return true;
+    }
+    else
+    {
+        int iter = 0;
+        while (iter < len1)
+        {
+            if (filePath1.at(iter) < filePath2.at(iter))
+            {
+                return false;
+            }
+            else if (filePath1.at(iter) > filePath2.at(iter))
+            {
+                return true;
+            }
+            ++iter;
+        }
+    }
+    return true;
+}
+
+static bool LessSort(std::string filePath1, std::string filePath2)
+{
+    return (!GreaterEqSort(filePath1, filePath2));
+}
+
+static void pathSort(std::vector<std::string> &paths, int sortMode)
+{
+    if (sortMode == 1)
+    {
+        std::sort(paths.begin(), paths.end(), LessSort);
+    }
+}
+
+DynamicEffect::DynamicEffect()
+    : running_(false)
+    , interval_time_(1000 / 24)
+    , count_(0)
+    , curIndex_(0)
+    , point_(0, 0)
+{
+    connect(&timer_, &QTimer::timeout, this, &DynamicEffect::slot_timeout);
+}
+
+DynamicEffect::~DynamicEffect()
+{
+    stop();
+}
+
+QPixmap *DynamicEffect::getCurrentPixmap()
+{
+    if (count_ == 0)
+    {
+        return nullptr;
+    }
+
+    std::lock_guard<std::mutex> guard(mutex_);
+    if (curIndex_ >= count_ || curIndex_ < 0)
+    {
+        abort();
+    }
+
+    return &images_[curIndex_];
+}
+
+int DynamicEffect::getCurrentIndex()
+{
+    std::lock_guard<std::mutex> guard(mutex_);
+    return curIndex_;
+}
+
+void DynamicEffect::setCurrentIndex(int index)
+{
+    std::lock_guard<std::mutex> guard(mutex_);
+    curIndex_ = index;
+}
+
+void DynamicEffect::loadImages(std::string dir, float scale)
+{
+    std::vector<std::string> vec;
+    vec.clear();
+    scanFilesUseBoost(dir, vec, ".png");
+    pathSort(vec, 1);
+
+    int size = vec.size();
+    count_ = size;
+
+    for (int i = 0; i < size; ++i)
+    {
+        // LOG_DEBUG("image: {}", vec[i]);
+        QPixmap pix;
+        pix.load(QString::fromStdString(vec[i]));
+        if (fabs(scale - 1.0) > 0.01)
+        {
+            pix = pix.scaled(pix.width() * scale, pix.height() * scale);
+        }
+
+        images_.emplace_back(pix);
+    }
+}
+
+void DynamicEffect::slot_timeout()
+{
+    std::lock_guard<std::mutex> guard(mutex_);
+    if (curIndex_ >= count_ - 1)
+    {
+        curIndex_ = 0;
+    }
+    else
+    {
+        ++curIndex_;
+    }
+}
+
+void DynamicEffect::start()
+{
+    running_ = true;
+    timer_.setInterval(interval_time_);
+    timer_.start();
+}
+void DynamicEffect::stop()
+{
+    if (timer_.isActive())
+    {
+        timer_.stop();
+    }
+}
+
+HahaUi::HahaUi(/*QWidget *parent*/)
+    /* : parent_(parent) */
+    : imagePath_(common::ProcessInfo::exeDirPath() + "/image/")
+    , robotStrategyCount_(0)
+    , resolutionSize_(1080, 1920)
 {
     init();
 }
 
-HahaUi::~HahaUi() {}
+HahaUi::~HahaUi()
+{
+    sleepEffect_.stop();
+    mirrorBrokenEffect_.stop();
+    mirrorLoopEffect_.stop();
+    tipLoopEffect_.stop();
+    tipAppearEffect_.stop();
+}
 
 void HahaUi::init()
 {
+    initRobotStrategy();
     loadAllImage();
-    loadFonts();
+    // loadFonts();
 }
 
-void HahaUi::loadFonts()
-{
-    std::string fontpath = common::ProcessInfo::exeDirPath() + "/YouSheBiaoTiHei-2.ttf";
-    int id = QFontDatabase::addApplicationFont(QString::fromStdString(fontpath));
+//void HahaUi::loadFonts()
+//{
+//    std::string fontpath = common::ProcessInfo::exeDirPath() + "/YouSheBiaoTiHei-2.ttf";
+//    int id = QFontDatabase::addApplicationFont(QString::fromStdString(fontpath));
 
-    QStringList families = QFontDatabase::applicationFontFamilies(id);
-    // LOG_DEBUG("[load fonts] path:{},  size:{}", fontpath, families.size());
-    if (!families.empty())
-    {
-        font_ = new QFont(families[0]);
-        font_->setPixelSize(50);
-        font_->setWeight(400);
-    }
-    else
-    {
-        LOG_ERROR("not found font file!!");
-        abort();
-    }
+//    QStringList families = QFontDatabase::applicationFontFamilies(id);
+
+//    if (!families.empty())
+//    {
+//        font_ = new QFont(families[0]);
+//        font_->setPixelSize(50);
+//        font_->setWeight(400);
+//    }
+//    else
+//    {
+//        LOG_ERROR("not found font file!!");
+//        abort();
+//    }
+//}
+
+void HahaUi::initRobotStrategy()
+{
+    RobotStrategy strate1;
+    strate1.jimu2 = 1;
+    strate1.jimu4 = 1;
+    robotStrategyVector_.emplace_back(strate1);
+
+    RobotStrategy strate2;
+    strate2.jimu1 = 1;
+    strate2.jimu3 = 1;
+    robotStrategyVector_.emplace_back(strate2);
+
+    RobotStrategy strate3;
+    strate3.cruzer = 1;
+    robotStrategyVector_.emplace_back(strate3);
+
+    RobotStrategy strate4;
+    strate4.wukong1 = 1;
+    robotStrategyVector_.emplace_back(strate4);
+
+    RobotStrategy strate5;
+    strate5.wukong2 = 1;
+    robotStrategyVector_.emplace_back(strate5);
+
+    robotStrategyCount_ = robotStrategyVector_.size();
 }
 
 void HahaUi::loadAllImage()
 {
-    using namespace cv;
+    std::string sleep_dir = imagePath_ + "魔镜互动-待机/";
+    sleepEffect_.loadImages(sleep_dir);
+    sleepEffect_.start();
 
-    robotCount_ = 3;
-    std::string robot_path = imagePath_ + "robot/";
-    // cruzr 图片缓存
-    QImage cruzr(QString::fromStdString(robot_path + "cruzr1.png"));
-    if (cruzr.isNull())
-    {
-        LOG_ERROR("load cruzr image failed!!");
-        abort();
-    }
-    QPixmap cruzr_pixmap = QPixmap::fromImage(cruzr);
-    cruzrRobotImages_.emplace_back(cruzr_pixmap);
-    cruzrRobotImagesCount_ = 1;
-    // jimu 图片缓存
-    QImage jimu1(QString::fromStdString(robot_path + "jimu1.png"));
-    if (jimu1.isNull())
-    {
-        LOG_ERROR("load jimu1 image failed!!");
-        abort();
-    }
-    QImage jimu2(QString::fromStdString(robot_path + "jimu2.png"));
-    if (jimu2.isNull())
-    {
-        LOG_ERROR("load jimu2 image failed!!");
-        abort();
-    }
-    QImage jimu3(QString::fromStdString(robot_path + "jimu3.png"));
-    if (jimu3.isNull())
-    {
-        LOG_ERROR("load jimu3 image failed!!");
-        abort();
-    }
-    QImage jimu4(QString::fromStdString(robot_path + "jimu4.png"));
-    if (jimu4.isNull())
-    {
-        LOG_ERROR("load jimu4 image failed!!");
-        abort();
-    }
-    QPixmap jimu1_pixmap = QPixmap::fromImage(jimu1);
-    QPixmap jimu2_pixmap = QPixmap::fromImage(jimu2);
-    QPixmap jimu3_pixmap = QPixmap::fromImage(jimu3);
-    QPixmap jimu4_pixmap = QPixmap::fromImage(jimu4);
-    jimuRobotImages_.emplace_back(jimu1_pixmap);
-    jimuRobotImages_.emplace_back(jimu2_pixmap);
-    jimuRobotImages_.emplace_back(jimu3_pixmap);
-    jimuRobotImages_.emplace_back(jimu4_pixmap);
-    jimuRobotImagesCount_ = 4;
-    // wukong 图片缓存
-    QImage wukong1(QString::fromStdString(robot_path + "wukong1.png"));
-    if (wukong1.isNull())
-    {
-        LOG_ERROR("load wukong1 image failed!!");
-        abort();
-    }
-    QImage wukong2(QString::fromStdString(robot_path + "wukong2.png"));
-    if (wukong2.isNull())
-    {
-        LOG_ERROR("load wukong2 image failed!!");
-        abort();
-    }
-    QPixmap wukong1_pixmap = QPixmap::fromImage(wukong1);
-    QPixmap wukong2_pixmap = QPixmap::fromImage(wukong2);
-    wukongRobotImages_.emplace_back(wukong1_pixmap);
-    wukongRobotImages_.emplace_back(wukong2_pixmap);
-    wukongRobotImagesCount_ = 2;
-    // 休眠图片缓存
-    QPixmap sleep_pixmap;
-    sleep_pixmap.load(QString::fromStdString(imagePath_ + "sleep.jpg"));
-    if (sleep_pixmap.isNull())
-    {
-        LOG_ERROR("load sleep image failed!!");
-        abort();
-    }
-    sleepImages_.emplace_back(sleep_pixmap);
-    sleepImageCount_ = 1;
-    // 提示框图片缓存
-    QImage tips(QImage(QString::fromStdString(imagePath_ + "tips.png")));
-    if (tips.isNull())
-    {
-        LOG_ERROR("load tips image failed!!");
-        abort();
-    }
-    QPixmap tips_pixmap = QPixmap::fromImage(tips);
+    std::string mirror_broken_dir = imagePath_ + "魔镜互动-破碎/";
+    mirrorBrokenEffect_.loadImages(mirror_broken_dir);
+    mirrorBrokenEffect_.start();
 
-    // LOG_DEBUG("first tips: {},{}", tips_pixmap.size().width(), tips_pixmap.size().height());
-    tipsImages_.emplace_back(tips_pixmap);
-    tipsImagesCount_ = 1;
-    // 魔镜图片缓存
-    QImage mirror(QImage(QString::fromStdString(imagePath_ + "mirror.png")));
-    if (mirror.isNull())
-    {
-        LOG_ERROR("load mirror png image failed, {}!!", imagePath_ + "mirror.png");
-        abort();
-    }
-    QPixmap mirror_pixmap = QPixmap::fromImage(mirror);
-    mirrorImages_.emplace_back(mirror_pixmap);
-    mirrorImagesCount_ = 1;
+    std::string mirror_loop_dir = imagePath_ + "魔镜互动-转场/全镂空背景/";
+    mirrorLoopEffect_.loadImages(mirror_loop_dir);
+    mirrorLoopEffect_.start();
 
-    QImage emoji(QImage(QString::fromStdString(imagePath_ + "emoji-smile.png")));
-    if (mirror.isNull())
-    {
-        LOG_ERROR("load emoji png image failed, {}!!", imagePath_ + "emoji.png");
-        abort();
-    }
-    emojiImage_ = QPixmap::fromImage(emoji).scaled(43, 41);
+    std::string tip_loop_dir = imagePath_ + "魔镜互动-弹窗循环/";
+    tipLoopEffect_.loadImages(tip_loop_dir);
+    tipLoopEffect_.start();
+
+    std::string tip_appear_dir = imagePath_ + "魔镜互动-弹窗出现/";
+    tipAppearEffect_.loadImages(tip_appear_dir);
+    tipAppearEffect_.start();
+
+    std::string cruzr_dir = imagePath_ + "角色1/";
+    cruzrEffect_.loadImages(cruzr_dir, 1.0);
+    cruzrEffect_.setPoint(QPoint(700, 1400));
+    cruzrEffect_.start();
+
+    std::string wukong1_dir = imagePath_ + "角色2/";
+    wukong1Effect_.loadImages(wukong1_dir, 1.0);
+    wukong1Effect_.setPoint(QPoint(90, 1400));
+    wukong1Effect_.start();
+
+    std::string wukong2_dir = imagePath_ + "角色3/";
+    wukong2Effect_.loadImages(wukong2_dir, 1.0);
+    wukong2Effect_.setPoint(QPoint(745, 1400));
+    wukong2Effect_.start();
+
+    std::string jimu1_dir = imagePath_ + "角色4/";
+    jimu1Effect_.loadImages(jimu1_dir, 2.0);
+    jimu1Effect_.setPoint(QPoint(0, 565));
+    jimu1Effect_.start();
+
+    std::string jimu2_dir = imagePath_ + "角色5/";
+    jimu2Effect_.loadImages(jimu2_dir, 2.0);
+    jimu2Effect_.setPoint(QPoint(0, 1443));
+    jimu2Effect_.start();
+
+    std::string jimu3_dir = imagePath_ + "角色6/";
+    jimu3Effect_.loadImages(jimu3_dir, 2.0);
+    jimu3Effect_.setPoint(QPoint(790, 1377));
+    jimu3Effect_.start();
+
+    std::string jimu4_dir = imagePath_ + "角色7/";
+    jimu4Effect_.loadImages(jimu4_dir, 2.0);
+    jimu4Effect_.setPoint(QPoint(730, 310));
+    jimu4Effect_.start();
 }
 
-void HahaUi::updateAllImage()
-{
-    if (!resolutionObject_)
-    {
-        return;
-    }
-
-    auto &cruzrs = resolutionObject_->robotRects_[0];
-    QSize cruzr_size(cruzrs.width, cruzrs.height);
-    for (int i = 0; i < cruzrRobotImagesCount_; ++i)
-    {
-        cruzrRobotImages_[i] = cruzrRobotImages_[i].scaled(cruzr_size,
-                                                           Qt::AspectRatioMode::IgnoreAspectRatio,
-                                                           Qt::SmoothTransformation);
-    }
-
-    auto &jimus = resolutionObject_->robotRects_[1];
-    QSize jimu_size(jimus.width, jimus.height);
-    for (int i = 0; i < jimuRobotImagesCount_; ++i)
-    {
-        jimuRobotImages_[i] = jimuRobotImages_[i].scaled(jimu_size,
-                                                         Qt::AspectRatioMode::IgnoreAspectRatio,
-                                                         Qt::SmoothTransformation);
-    }
-
-    auto &wukongs = resolutionObject_->robotRects_[2];
-    QSize wukong_size(wukongs.width, wukongs.height);
-    for (int i = 0; i < wukongRobotImagesCount_; ++i)
-    {
-        wukongRobotImages_[i] = wukongRobotImages_[i].scaled(wukong_size,
-                                                             Qt::AspectRatioMode::IgnoreAspectRatio,
-                                                             Qt::SmoothTransformation);
-    }
-
-    QSize size(resolutionSize_.width, resolutionSize_.height);
-    for (int i = 0; i < sleepImageCount_; ++i)
-    {
-        auto &pix = sleepImages_[i];
-        pix = pix.scaled(size, Qt::AspectRatioMode::IgnoreAspectRatio, Qt::SmoothTransformation);
-    }
-    for (int i = 0; i < mirrorImagesCount_; ++i)
-    {
-        mirrorImages_[i] = mirrorImages_[i].scaled(size,
-                                                   Qt::AspectRatioMode::IgnoreAspectRatio,
-                                                   Qt::SmoothTransformation);
-        // cv::imshow("mirror", image::QPixmapToCvMat(mirrorImages_[i]));
-    }
-
-    auto &tips = resolutionObject_->tipsMarginRect_;
-    QSize tips_size(tips.width, tips.height);
-    //LOG_DEBUG("tips: {},{}", tipsImages_[0].size().width(), tipsImages_[0].size().height());
-    for (int i = 0; i < tipsImagesCount_; ++i)
-    {
-        tipsImages_[i] = tipsImages_[i].scaled(tips_size,
-                                               Qt::AspectRatioMode::IgnoreAspectRatio,
-                                               Qt::SmoothTransformation);
-    }
-}
-
-void HahaUi::addImage(cv::Mat &mat, const cv::Rect rect, const HahaImageType type)
+void HahaUi::addImage(cv::Mat &mat, const HahaImageType type)
 {
     QPixmap pix = QPixmap::fromImage(image::mat2qim(mat));
     QPainter painter;
@@ -236,81 +327,142 @@ void HahaUi::addImage(cv::Mat &mat, const cv::Rect rect, const HahaImageType typ
     {
         addSleepImage(painter);
     }
-    else if (type == Mirror)
+    else if (type == TipLoop)
     {
-        addMirrorImage(painter);
+        addTipLoopImage(painter);
     }
-    else if (type == Tips)
+    else if (type == TipApper)
     {
-        addTipsImage(painter);
+        addTipAppearImage(painter);
+    }
+    else if (type == MirrorBroken)
+    {
+        addMirrorBrokenImage(painter);
+    }
+    else if (type == MirrorLoop)
+    {
+        addMirrorLoopImage(painter);
     }
     else if (type == Robots)
     {
+        // robotStrategy_ = robotStrategyVector_[1];
         addRobotImage(painter);
     }
-    else if (type == All)
+    else if (type == RobotsMirrorLoopTipApper)
     {
+        //  LOG_DEBUG("RobotsMirrorLoopTipApper");
         addRobotImage(painter);
-        addMirrorImage(painter);
-        addTipsImage(painter);
+        addMirrorLoopImage(painter);
+        addTipAppearImage(painter);
     }
-    else if (type == Effect)
+    else if (type == RobotsMirrorLoopTipLoop)
+    {
+        // LOG_DEBUG("RobotsMirrorLoopTipLoop");
+        addRobotImage(painter);
+        addMirrorLoopImage(painter);
+        addTipLoopImage(painter);
+    }
+    else if (type == RobotsMirrorBroken)
     {
         addRobotImage(painter);
-        addMirrorImage(painter);
-        addTipsImage(painter);
+        addMirrorBrokenImage(painter);
     }
 
     painter.end();
     mat = image::QPixmapToCvMat(pix, true);
 }
 
-void HahaUi::addMirrorImage(QPainter &painter)
+void HahaUi::addMirrorLoopImage(QPainter &painter)
 {
-    //    mat.copyTo(mirrorMat_, mirrorMaskMat_);
-    //    mat = mirrorMat_.clone();
+    //  LOG_DEBUG("addMirrorLoopImage");
+    auto pix = mirrorLoopEffect_.getCurrentPixmap();
+    painter.drawPixmap(0, 0, pix->width(), pix->height(), (*pix).copy());
+}
 
-    auto &pix = mirrorImages_[0];
-    painter.drawPixmap(0, 0, pix.width(), pix.height(), mirrorImages_[0]);
+void HahaUi::addMirrorBrokenImage(QPainter &painter)
+{
+    //  LOG_DEBUG("addMirrorBrokenImage");
+    auto pix = mirrorBrokenEffect_.getCurrentPixmap();
+    painter.drawPixmap(0, 0, pix->width(), pix->height(), *pix);
 }
 
 void HahaUi::addSleepImage(QPainter &painter)
 {
-    auto &pix = sleepImages_[0];
-    painter.drawPixmap(0, 0, pix.width(), pix.height(), sleepImages_[0]);
+    //  LOG_DEBUG("addSleepImage");
+    auto pix = sleepEffect_.getCurrentPixmap();
+    painter.drawPixmap(0, 0, pix->width(), pix->height(), *pix);
 }
 
-void HahaUi::addTipsImage(QPainter &painter)
+void HahaUi::addTipAppearImage(QPainter &painter)
 {
-    auto pix = tipsImages_[0];
-    painter.drawPixmap(118, 88, pix.width(), pix.height(), pix);
+    //  LOG_DEBUG("addTipAppearImage");
+    auto pix = tipAppearEffect_.getCurrentPixmap();
+    painter.drawPixmap(118, 88, pix->width(), pix->height(), *pix);
+}
 
-    //绘制字体
-    painter.setFont(*font_);
-    painter.setPen("#2AADFF");
-    painter.drawText(QRect(375, 131, 279, 65), Qt::AlignCenter, tr("遮住脸试试看"));
-
-    // 绘制 emoji
-    painter.drawPixmap(661, 143, emojiImage_.width(), emojiImage_.height(), emojiImage_);
+void HahaUi::addTipLoopImage(QPainter &painter)
+{
+    //  LOG_DEBUG("addTipLoopImage");
+    auto pix = tipLoopEffect_.getCurrentPixmap();
+    painter.drawPixmap(118, 88, pix->width(), pix->height(), *pix);
 }
 
 void HahaUi::addRobotImage(QPainter &painter)
 {
-    if (curLeftRobots_ == nullptr || curRightRobots_ == nullptr)
+    //  LOG_DEBUG("addRobotImage");
+    //LOG_DEBUG("here");
+    // robotStrategy_ = robotStrategyVector_[4];
+    //    LOG_DEBUG("strategy: {},{},{},{},{},{},{}",
+    //              (uint8_t) robotStrategy_.cruzer,
+    //              (uint8_t) robotStrategy_.wukong1,
+    //              (uint8_t) robotStrategy_.wukong2,
+    //              (uint8_t) robotStrategy_.jimu1,
+    //              (uint8_t) robotStrategy_.jimu2,
+    //              (uint8_t) robotStrategy_.jimu3,
+    //              (uint8_t) robotStrategy_.jimu4);
+    if (robotStrategy_.cruzer == 1)
     {
-        changeRobot();
+        auto pix = cruzrEffect_.getCurrentPixmap();
+        QPoint point = cruzrEffect_.point_;
+        painter.drawPixmap(point.x(), point.y(), pix->width(), pix->height(), *pix);
     }
-
-    painter.drawPixmap(leftPoint_.x(),
-                       leftPoint_.y(),
-                       (*curLeftRobots_)[0].width(),
-                       (*curLeftRobots_)[0].height(),
-                       (*curLeftRobots_)[0]);
-    painter.drawPixmap(rightPoint_.x(),
-                       rightPoint_.y(),
-                       (*curRightRobots_)[0].width(),
-                       (*curRightRobots_)[0].height(),
-                       (*curRightRobots_)[0]);
+    if (robotStrategy_.wukong1 == 1)
+    {
+        auto pix = wukong1Effect_.getCurrentPixmap();
+        QPoint point = wukong1Effect_.point_;
+        painter.drawPixmap(point.x(), point.y(), pix->width(), pix->height(), *pix);
+    }
+    if (robotStrategy_.wukong2 == 1)
+    {
+        auto pix = wukong2Effect_.getCurrentPixmap();
+        QPoint point = wukong2Effect_.point_;
+        painter.drawPixmap(point.x(), point.y(), pix->width(), pix->height(), *pix);
+    }
+    if (robotStrategy_.jimu1 == 1)
+    {
+        // LOG_DEBUG("here1");
+        auto pix = jimu1Effect_.getCurrentPixmap();
+        QPoint point = jimu1Effect_.point_;
+        painter.drawPixmap(point.x(), point.y(), pix->width(), pix->height(), *pix);
+    }
+    if (robotStrategy_.jimu2 == 1)
+    {
+        auto pix = jimu2Effect_.getCurrentPixmap();
+        QPoint point = jimu2Effect_.point_;
+        painter.drawPixmap(point.x(), point.y(), pix->width(), pix->height(), *pix);
+    }
+    if (robotStrategy_.jimu3 == 1)
+    {
+        auto pix = jimu3Effect_.getCurrentPixmap();
+        QPoint point = jimu3Effect_.point_;
+        painter.drawPixmap(point.x(), point.y(), pix->width(), pix->height(), *pix);
+    }
+    if (robotStrategy_.jimu4 == 1)
+    {
+        auto pix = jimu4Effect_.getCurrentPixmap();
+        QPoint point = jimu4Effect_.point_;
+        painter.drawPixmap(point.x(), point.y(), pix->width(), pix->height(), *pix);
+    }
 }
 
 void HahaUi::getRandomRobot(int &r1, int &r2)
@@ -324,58 +476,17 @@ void HahaUi::getRandomRobot(int &r1, int &r2)
     }
 }
 
-void HahaUi::getRandomPoint(QPoint &left, QPoint &right)
+void HahaUi::changeRobotStrategy()
 {
-    int l = rand() % 2;
-    int r = rand() % 2;
-    if (l == 0)
+    static int lastStrategyIndex = 0;
+    time(NULL);
+
+    int index = rand() % robotStrategyCount_;
+    while (index == lastStrategyIndex)
     {
-        left = left_up_point;
-    }
-    else
-    {
-        left = left_down_point;
+        index = rand() % robotStrategyCount_;
     }
 
-    if (r == 0)
-    {
-        right = right_up_point;
-    }
-    else
-    {
-        right = right_down_point;
-    }
-}
-
-void HahaUi::changeRobot()
-{
-    int rob1, rob2;
-
-    getRandomRobot(rob1, rob2);
-    getRandomPoint(leftPoint_, rightPoint_);
-
-    if (rob1 == 0)
-    {
-        curLeftRobots_ = &cruzrRobotImages_;
-    }
-    else if (rob1 == 1)
-    {
-        curLeftRobots_ = &jimuRobotImages_;
-    }
-    else if (rob1 == 2)
-    {
-        curLeftRobots_ = &wukongRobotImages_;
-    }
-    if (rob2 == 0)
-    {
-        curRightRobots_ = &cruzrRobotImages_;
-    }
-    else if (rob2 == 1)
-    {
-        curRightRobots_ = &jimuRobotImages_;
-    }
-    else if (rob2 == 2)
-    {
-        curRightRobots_ = &wukongRobotImages_;
-    }
+    robotStrategy_ = robotStrategyVector_[index];
+    lastStrategyIndex = index;
 }

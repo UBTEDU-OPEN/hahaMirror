@@ -8,8 +8,65 @@
 #include <QObject>
 #include <QPixmap>
 #include <QRect>
+#include <QTimer>
 
-#include "resolution.h"
+struct RobotStrategy
+{
+    uint8_t cruzer = 0;
+    uint8_t wukong1 = 0;
+    uint8_t wukong2 = 0;
+    uint8_t jimu1 = 0;
+    uint8_t jimu2 = 0;
+    uint8_t jimu3 = 0;
+    uint8_t jimu4 = 0;
+
+    RobotStrategy operator=(RobotStrategy &data)
+    {
+        this->cruzer = data.cruzer;
+        this->wukong1 = data.wukong1;
+        this->wukong2 = data.wukong2;
+        this->jimu1 = data.jimu1;
+        this->jimu2 = data.jimu2;
+        this->jimu3 = data.jimu3;
+        this->jimu4 = data.jimu4;
+
+        return *this;
+    }
+};
+
+class DynamicEffect : public QObject
+{
+    Q_OBJECT
+public:
+    DynamicEffect();
+    ~DynamicEffect();
+
+    void loadImages(std::string dir, float scale = 1.0);
+    void start();
+    void stop();
+
+    QPixmap *getCurrentPixmap();
+    int getCurrentIndex();
+    void setCurrentIndex(int index);
+
+    void setPeriod(int period) { interval_time_ = 1000 / period; }
+    void setPoint(QPoint point) { point_ = point; }
+
+private slots:
+    void slot_timeout();
+
+private:
+    friend class HahaUi;
+    bool running_;
+    int interval_time_;
+    int count_;
+    int curIndex_;
+    std::vector<QPixmap> images_;
+    QPoint point_;
+    QTimer timer_;
+
+    std::mutex mutex_;
+};
 
 class HahaUi : public QObject
 {
@@ -18,12 +75,14 @@ public:
     typedef enum HahaImageType
     {
         Sleep,
-        Tips,
-        Mirror,
+        TipLoop,
+        TipApper,
+        MirrorBroken,
+        MirrorLoop,
         Robots,
-        Effect,
-        Tests,
-        All
+        RobotsMirrorLoopTipApper,
+        RobotsMirrorLoopTipLoop,
+        RobotsMirrorBroken
     };
 
     typedef enum RobotType
@@ -32,15 +91,11 @@ public:
         Jimu
     };
 
-    HahaUi(QWidget *parent = nullptr);
+    HahaUi(/* QWidget *parent = nullptr*/);
     ~HahaUi();
 
-    void addImage(cv::Mat &mat, const cv::Rect rect, const HahaImageType type);
-    void addImage(QPixmap &pix, const QRect rect, const HahaImageType type);
-    void addRobot(cv::Mat mat, const cv::Rect rect, const RobotType type);
-    void addRobot(QPixmap &pix, const QRect rect, const RobotType type);
-    void geMirrorROIImage(cv::Mat mat);
-    void setSleepStatus(bool flag) { sleepStatus_ = flag; }
+    void addImage(cv::Mat &mat, const HahaImageType type);
+    void addImage(QPixmap &pix, const HahaImageType type);
 
     void start();
     void stop();
@@ -51,74 +106,60 @@ public:
         // updateAllImage();
     }
 
-    void setResolutionObject(Resolution *resolution)
-    {
-        if (resolution)
-        {
-            resolutionObject_ = resolution;
-            resolutionSize_ = resolution->resolution_;
-            // updateAllImage();
-        }
-    }
-    void changeRobot();
+    void setCurrentMirrorBrokenIndex(int index) { mirrorBrokenEffect_.setCurrentIndex(index); }
+    void setCurrentTipAppearIndex(int index) { tipAppearEffect_.setCurrentIndex(index); }
+    int getMirrorBrokenIndex() { return mirrorBrokenEffect_.getCurrentIndex(); }
+    int getTipAppearIndex() { return tipAppearEffect_.getCurrentIndex(); }
+
+    void changeRobotStrategy();
 
 private:
     void init();
-    void loadAllImage();
+    void initRobotStrategy();
     void loadFonts();
-    void updateAllImage();
+    void loadAllImage();
+
+    void loadSleepImages(std::string dir);
+    void loadMirrorBrokenImages(std::string dir);
+    void loadMirrorBackgroundImages(std::string dir);
+    void loadTipsLoopImages(std::string dir);
+    void loadTipsAppearImages(std::string dir);
+
     void handleTaskCallback();
 
     void getRandomRobot(int &r1, int &r2);
     void getRandomPoint(QPoint &s1, QPoint &s2);
 
     void addSleepImage(QPainter &painter);
-    void addMirrorImage(QPainter &painter);
-    void addTipsImage(QPainter &painter);
+    void addMirrorBrokenImage(QPainter &painter);
+    void addMirrorLoopImage(QPainter &painter);
+    void addTipLoopImage(QPainter &painter);
+    void addTipAppearImage(QPainter &painter);
     void addRobotImage(QPainter &painter);
 
-    QWidget *parent_;
-    QFont *font_;
+    // QWidget *parent_;
+    // QFont *font_;
     bool running_;
     std::thread *taskThread_;
     std::string imagePath_;
 
-    static const double leftMarginScale_;
-    static const double rightMarginScale_;
-    static const double upMarginScale_;
-    static const double downMarginScale_;
+    DynamicEffect sleepEffect_;
+    DynamicEffect mirrorBrokenEffect_;
+    DynamicEffect mirrorLoopEffect_;
+    DynamicEffect tipLoopEffect_;
+    DynamicEffect tipAppearEffect_;
+    DynamicEffect cruzrEffect_;
+    DynamicEffect wukong1Effect_;
+    DynamicEffect wukong2Effect_;
+    DynamicEffect jimu1Effect_;
+    DynamicEffect jimu2Effect_;
+    DynamicEffect jimu3Effect_;
+    DynamicEffect jimu4Effect_;
+    std::vector<RobotStrategy> robotStrategyVector_;
+    int robotStrategyCount_;
+    RobotStrategy robotStrategy_;
 
-    static const QPoint left_up_point;
-    static const QPoint right_up_point;
-    static const QPoint left_down_point;
-    static const QPoint right_down_point;
-
-    int robotCount_;
-    std::vector<QPixmap> cruzrRobotImages_;
-    int cruzrRobotImagesCount_;
-    std::vector<QPixmap> jimuRobotImages_;
-    int jimuRobotImagesCount_;
-    std::vector<QPixmap> wukongRobotImages_;
-    int wukongRobotImagesCount_;
-    std::vector<QPixmap> sleepImages_;
-    int sleepImageCount_;
-    std::vector<QPixmap> tipsImages_;
-    int tipsImagesCount_;
-    std::vector<QPixmap> mirrorImages_;
-    QPixmap emojiImage_;
-    int mirrorImagesCount_;
     cv::Size resolutionSize_;
-
-    cv::Mat cruzerMat_;
-    cv::Mat mirrorMat_;
-    cv::Mat mirrorMaskMat_;
-    Resolution *resolutionObject_;
-
-    std::vector<QPixmap> *curLeftRobots_;
-    std::vector<QPixmap> *curRightRobots_;
-    QPoint leftPoint_;
-    QPoint rightPoint_;
-    bool sleepStatus_;
 };
 
 #endif // HAHAUI_H

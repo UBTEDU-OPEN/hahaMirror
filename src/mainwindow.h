@@ -20,6 +20,14 @@ class MainWindow;
 }
 QT_END_NAMESPACE
 
+enum SleepStatus
+{
+    Sleeping = 0,
+    Waving,
+    Waved,
+    Work,
+};
+
 class MainWindow : public QMainWindow
 {
     Q_OBJECT
@@ -44,8 +52,10 @@ protected slots:
     void slot_closeWindow();
     void slot_faceCountChanged(int cur, int last);
     void slot_uiSleep();
+    void slot_showtimeout();
 
 private:
+    void checkUiStatus();
     void init();
     void initConnect();
     void initUi();
@@ -65,6 +75,7 @@ private:
     QMenu *modeMenu_;
     cv::Size resolution_;
     QTimer *sleepTimer_;
+    QTimer *showTimer_;
 
     ProducerRecordImpl *cameraServer_;
     PlayCamera *cameraClient_;
@@ -75,7 +86,10 @@ private:
     HahaUi *hahaUi_;
     Resolution *resolutionObject_;
 
-    bool sleeping_;
+    SleepStatus sleepStatus_;
     QRect deskRect_;
+    std::mutex statusMutex_;
+    cv::Mat curMat_;
+    std::mutex matMutex_;
 };
 #endif // MAINWINDOW_H
