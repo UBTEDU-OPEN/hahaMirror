@@ -5,6 +5,7 @@
 #include <thread>
 #include <QObject>
 
+#include "config.h"
 #include "consumer_base.h"
 #include "resolution.h"
 
@@ -40,8 +41,19 @@ public:
         return person_results_;
     }
 
-    void setResolutionObject(Resolution *object) { resolutionObject_ = object; }
+    void setConfig(config::Config *config)
+    {
+        config_ = config;
+        float w_scale = 1080.0 / config->camera()->height;
+        float h_scale = 1920.0 / config->camera()->width;
+        validArea_ = cv::Rect(validArea_.x / w_scale,
+                              validArea_.y / h_scale,
+                              validArea_.width / w_scale,
+                              validArea_.height / h_scale);
+        max_face_num_ = config->detect()->max_face_num;
+    }
     void setDetectStatus(bool flag) { detectStatus_ = flag; }
+    cv::Rect &getValidArea() { return validArea_; }
 
 signals:
     void sig_faceCountChanged(int cur, int last);
@@ -60,9 +72,10 @@ private:
     std::thread *taskThread_;
     std::mutex matMutex_;
     std::mutex personMutex_;
-    Resolution *resolutionObject_;
+    cv::Size resolution_;
     cv::Rect validArea_;
     bool detectStatus_;
+    config::Config *config_;
 };
 
 #endif // FACEDETECT_H

@@ -25,6 +25,7 @@ set(UI_FORMS
 
 set(SRC_LISTS
     briefhttpclient.cpp
+    config.cpp
     facedetect.cpp 
     faceidentify.cpp 
     hahacore.cpp 
@@ -61,4 +62,9 @@ target_link_libraries(${PROJECT_NAME}
     ${Qt5Gui_LIBRARIES}
     ${Qt5PrintSupport_LIBRARIES}
 )
+#target_link_libraries(${PROJECT_NAME}
+#    jsonrpccpp-client
+#    jsonrpccpp-common
+#    jsoncpp
+#)
 

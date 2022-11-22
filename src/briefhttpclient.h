@@ -12,6 +12,7 @@ public:
     ~BriefHttpClient() = default;
 
     bool faceIdentify(const uint8_t *data, const size_t size, std::string &response);
+    bool saveFaceRecord(const uint8_t *data, const size_t size, std::string &response);
 
 private:
     std::string url_;

@@ -10,6 +10,7 @@
 
 #include "common/json.hpp"
 #include "common/logging.h"
+#include "common/time.h"
 
 #include <QByteArray>
 #include <QDebug>
@@ -71,9 +72,13 @@ void WebsocketServer::startSendThread()
             std::string sendtxt = j.dump(2);
             LOG_TRACE(sendtxt);
 
+            common::time::TimeConsumingAnalysis analysis;
+
             for (auto it = m_connections_.begin(); it != m_connections_.end(); ++it)
             {
                 m_server_.send(*it, sendtxt, websocketpp::frame::opcode::text);
+                analysis.addTimePoint("websocket send faceinfo");
+                LOG_DEBUG(analysis.print());
             }
         }
 

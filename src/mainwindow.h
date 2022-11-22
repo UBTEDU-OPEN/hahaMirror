@@ -4,6 +4,7 @@
 #include <QMainWindow>
 #include <QMenu>
 
+#include "config.h"
 #include "facedetect.h"
 #include "faceidentify.h"
 #include "hahacore.h"
@@ -53,26 +54,31 @@ protected slots:
     void slot_faceCountChanged(int cur, int last);
     void slot_uiSleep();
     void slot_showtimeout();
+    void slot_setArea();
 
 private:
     void checkUiStatus();
     void init();
     void initConnect();
     void initUi();
+    void initLogger();
     void initMenu();
     void registerType();
     void selectScreen();
     void fillRects(cv::Mat mat, std::vector<FaceDetectResult> &);
     void setHahaEffect(const QString &effect);
+    int getVideoDevice();
 
     Ui::MainWindow *ui;
     bool pressed_;
+    bool showRectangle_;
+    bool showValidArea_;
     int lastEffect_;
     QPoint m_point;
     QMenu *rootMenu_;
     QMenu *hahaMenu_;
     QAction *closeAction_;
-    QMenu *modeMenu_;
+    QMenu *areaMenu_;
     cv::Size resolution_;
     QTimer *sleepTimer_;
     QTimer *showTimer_;
@@ -91,5 +97,7 @@ private:
     std::mutex statusMutex_;
     cv::Mat curMat_;
     std::mutex matMutex_;
+
+    config::Config *config_;
 };
 #endif // MAINWINDOW_H

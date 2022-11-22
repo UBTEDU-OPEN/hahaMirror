@@ -367,6 +367,8 @@ void TimeConsumingAnalysis::reset()
 
     index_ = 0;
     points_.clear();
+
+    addTimePoint();
 }
 
 std::string TimeConsumingAnalysis::print()

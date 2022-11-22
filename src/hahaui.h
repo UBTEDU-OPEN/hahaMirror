@@ -56,6 +56,8 @@ private slots:
     void slot_timeout();
 
 private:
+    void handleCurIndexCallback();
+
     friend class HahaUi;
     bool running_;
     int interval_time_;
@@ -66,6 +68,7 @@ private:
     QTimer timer_;
 
     std::mutex mutex_;
+    std::thread *thread_;
 };
 
 class HahaUi : public QObject

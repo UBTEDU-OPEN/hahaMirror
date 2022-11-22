@@ -1,6 +1,7 @@
 #ifndef HAHACORE_H
 #define HAHACORE_H
 
+#include "config.h"
 #include "consumer_base.h"
 
 #include <mutex>
@@ -37,6 +38,8 @@ public:
 
     void setFaceDetectObject(FaceDetect *faceDetectObj) { faceDetectObj_ = faceDetectObj; }
 
+    void setConfig(config::Config *config) { config_ = config; }
+
 signals:
     void sig_sendHahaMat(cv::Mat);
 
@@ -55,6 +58,7 @@ private:
     std::mutex hahaMatMutex_;
     cv::Mat hahaMat_;
     FaceDetect *faceDetectObj_;
+    config::Config *config_;
 };
 
 #endif // HAHACORE_H

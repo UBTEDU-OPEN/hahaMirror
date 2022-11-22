@@ -12,7 +12,7 @@
 
 namespace
 {
-static const std::string g_base_color_mat_name = "color_";
+   static const std::string g_base_color_mat_name = "color_";
 static const std::string g_base_depth_mat_name = "depth_";
 } // namespace
 

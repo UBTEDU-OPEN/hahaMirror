@@ -63,3 +63,41 @@ bool BriefHttpClient::faceIdentify(const uint8_t *data, const size_t size, std::
     }
     return false;
 }
+
+bool BriefHttpClient::saveFaceRecord(const uint8_t *data, const size_t size, std::string &response)
+{
+    CURL *curl;
+    CURLcode res;
+    curl = curl_easy_init();
+    if (curl)
+    {
+        curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "POST");
+        curl_easy_setopt(curl, CURLOPT_URL, url_.c_str());
+
+        curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+        curl_easy_setopt(curl, CURLOPT_DEFAULT_PROTOCOL, "https");
+        struct curl_slist *headers = NULL;
+        headers = curl_slist_append(headers, "Content-Type: application/json");
+        // headers = curl_slist_append(headers, "accept: application/json");
+        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, (char *) data);
+
+        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
+        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
+
+        res = curl_easy_perform(curl);
+        curl_easy_cleanup(curl);
+
+        if (res == CURLE_OK)
+        {
+            LOG_INFO("success: {}", response);
+            return true;
+        }
+        else
+        {
+            LOG_ERROR("failed: {}", response);
+        }
+    }
+
+    return false;
+}

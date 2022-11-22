@@ -24,6 +24,7 @@ public:
         , lastpointtime_(0)
         , index_(0)
     {
+        addTimePoint();
     }
     ~TimeConsumingAnalysis() = default;
 

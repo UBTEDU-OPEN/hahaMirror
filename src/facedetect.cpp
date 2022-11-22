@@ -15,7 +15,7 @@ FaceDetect::FaceDetect()
     , models_path_(common::ProcessInfo::exeDirPath() + "/model/")
     , face_handle_(0)
     , max_face_num_(6)
-    , validArea_(107, 287, 866, 1346)
+    , validArea_(107, 287, 866, 1446)
     , detectStatus_(true)
 {
 }
@@ -32,6 +32,7 @@ void FaceDetect::init()
     HaHaFaceVision::FACE_CONFIG_PARAMS config_params;
     config_params.imageWidth = 2000;
     config_params.imageHeight = 2000;
+    config_params.minFace = config_->detect()->faceMin;
     config_params.isColor = true;
     config_params.FaceLandmarkPose_flag = true;
     config_params.device_type = "CPU";
@@ -113,8 +114,6 @@ void FaceDetect::handleTaskCallback()
 
     while (running_)
     {
-        analysis.addTimePoint();
-
         matMutex_.lock();
         if (person_mat_.empty() || detectStatus_ == false)
         {
@@ -129,11 +128,12 @@ void FaceDetect::handleTaskCallback()
 
         analysis.addTimePoint("get mutex");
 
-        static const int sk_max_width = mat.cols;
-        static const int sk_max_height = mat.rows;
+        const int sk_max_width = mat.cols;
+        const int sk_max_height = mat.rows;
         // LOG_DEBUG("sk_max_width: {}, sk_max_height: {}", sk_max_width, sk_max_height);
         std::vector<FACE_DET_SINGLE_RESULT> faceResults;
         HaHaFaceVision::UBT_AIFaceDetection(face_handle_, mat, faceResults);
+        analysis.addTimePoint("UBT_AIFaceDetection");
         const int csize = faceResults.size();
         int size = csize;
         // LOG_DEBUG("size: {}", size);
@@ -174,6 +174,7 @@ void FaceDetect::handleTaskCallback()
                 areas[area].push_back(i);
             }
         }
+        analysis.addTimePoint("filter face of not in area");
         //    LOG_DEBUG("end: {}", size);
 
         std::vector<FaceDetectResult> results;
@@ -198,6 +199,7 @@ void FaceDetect::handleTaskCallback()
                 results.emplace_back(result);
             }
         }
+        analysis.addTimePoint("calculate big face");
 
         // LOG_DEBUG("cur: {}, last: {}", face_num, last_face_num);
 
@@ -207,8 +209,12 @@ void FaceDetect::handleTaskCallback()
         if (face_num == last_face_num)
         {
             ++face_count;
-            if (face_count > 30)
+            if (face_count >= 15)
             {
+                personMutex_.lock();
+                person_results_.swap(results);
+                personMutex_.unlock();
+
                 if (face_num != last_face_num_point)
                 {
                     emit sig_faceCountChanged(face_num, last_face_num_point);
@@ -222,17 +228,13 @@ void FaceDetect::handleTaskCallback()
             face_count = 0;
         }
 
+        analysis.addTimePoint("swap person results");
+
         // LOG_DEBUG("cur: {}, last: {}, face_count: {}", face_num, last_face_num_point, face_count);
 
         last_face_num = face_num;
 
-        personMutex_.lock();
-        person_results_.swap(results);
-        personMutex_.unlock();
-
-        analysis.addTimePoint("detect faces");
-
-        // LOG_DEBUG(analysis.print());
+        LOG_DEBUG(analysis.print());
         analysis.reset();
 
         mat.release();
@@ -247,11 +249,6 @@ void FaceDetect::consumeRecord(const cv::Mat color_mat, const cv::Mat original_m
     {
         person_mat_.release();
     }
-
-    //    using namespace common::time;
-    //    TimeConsumingAnalysis analysis;
-    //    analysis.addTimePoint();
-    //    LOG_DEBUG(analysis.print());
 
     person_mat_ = color_mat.clone();
 }

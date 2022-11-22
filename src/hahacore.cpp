@@ -41,7 +41,6 @@ void Hahacore::init()
 void Hahacore::handleTaskCallback()
 {
     using namespace common::time;
-    TimeConsumingAnalysis analysis;
 
     while (running_)
     {
@@ -53,25 +52,15 @@ void Hahacore::handleTaskCallback()
             continue;
         }
 
+        std::string rate = common::time::caculateFPS();
+        if (rate != "")
+        {
+            LOG_TRACE("HahaCore Fps: {}!!", rate);
+        }
+
         uint64_t begin_point_time = getCurrentMilliTime();
 
-        {
-            static int count = 0;
-            static int64_t start_time = getCurrentMilliTime();
-
-            ++count;
-            if (getCurrentMilliTime() - start_time > 1000)
-            {
-                int diff_time = getCurrentMilliTime() - start_time;
-                int fps = count * 1000 / diff_time;
-                LOG_TRACE("hahaCore FPS: {}", fps);
-                count = 0;
-                start_time = getCurrentMilliTime();
-            }
-        }
-        //   LOG_DEBUG("hahaMirror");
-        analysis.addTimePoint();
-
+        TimeConsumingAnalysis analysis;
         cv::Mat mat = sourceMat_.clone();
         sourceMatMutex_.unlock();
 
@@ -111,7 +100,8 @@ void Hahacore::handleTaskCallback()
         uint64_t diff = end_point_time - begin_point_time;
         if (diff < 30)
         {
-            std::this_thread::sleep_for(std::chrono::milliseconds(30 - diff));
+            std::this_thread::sleep_for(
+                std::chrono::milliseconds(config_->haha()->interval_time_ms - diff));
         }
     }
 }

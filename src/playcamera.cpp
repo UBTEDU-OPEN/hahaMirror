@@ -48,7 +48,7 @@ void PlayCamera::handleTaskCallback()
             {
                 // QImage hahaImg = image::mat2qim(curMat_);
                 // emit sig_getHahaImage(hahaImg);
-                emit sig_getHahaImage1(curMat_.clone());
+                //  emit sig_getHahaImage1(curMat_.clone());
                 curMat_.release();
                 matMutex_.unlock();
             }

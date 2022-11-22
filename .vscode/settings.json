@@ -13,5 +13,9 @@
         "initializer_list": "cpp",
         "regex": "cpp",
         "valarray": "cpp"
-    }
+    },
+    // 保存就自动格式化
+    "editor.formatOnSave": true,
+    // 设置 clang-format 的二进制路径
+    "clang-format.executable": "/usr/bin/clang-format", //"D:\\Program Files\\LLVM\\bin\\clang-format.exe", 
 }

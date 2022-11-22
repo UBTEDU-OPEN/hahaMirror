@@ -1,6 +1,7 @@
 #include "hahaui.h"
 #include "common/logging.h"
 #include "common/processinfo.h"
+#include "common/time.h"
 #include "image.h"
 #include <boost/filesystem.hpp>
 #include <QFontDatabase>
@@ -115,13 +116,11 @@ QPixmap *DynamicEffect::getCurrentPixmap()
         return nullptr;
     }
 
-    std::lock_guard<std::mutex> guard(mutex_);
-    if (curIndex_ >= count_ || curIndex_ < 0)
-    {
-        abort();
-    }
+    mutex_.lock();
+    int cur = curIndex_;
+    mutex_.unlock();
 
-    return &images_[curIndex_];
+    return &images_[cur];
 }
 
 int DynamicEffect::getCurrentIndex()
@@ -162,7 +161,12 @@ void DynamicEffect::loadImages(std::string dir, float scale)
 
 void DynamicEffect::slot_timeout()
 {
+    //  LOG_DEBUG("slot_timeout");
     std::lock_guard<std::mutex> guard(mutex_);
+    //    if (count_ == 100)
+    //    {
+    //        LOG_DEBUG("mirrorLoop index: {}", curIndex_);
+    //    }
     if (curIndex_ >= count_ - 1)
     {
         curIndex_ = 0;
@@ -173,17 +177,63 @@ void DynamicEffect::slot_timeout()
     }
 }
 
+void DynamicEffect::handleCurIndexCallback()
+{
+    static qint64 last = QDateTime::currentDateTime().toMSecsSinceEpoch();
+    while (running_)
+    {
+        common::time::TimeConsumingAnalysis a;
+        // LOG_DEBUG("interval_time: {}", interval_time_);
+        qint64 now = QDateTime::currentDateTime().toMSecsSinceEpoch();
+        if (now - last < interval_time_ / 2)
+        {
+            a.addTimePoint("sleep before");
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            a.addTimePoint("sleep after");
+            // LOG_DEBUG(a.print());
+            continue;
+        }
+        if (count_ == 100)
+        {
+            LOG_DEBUG("mirrorLoop index: {}", curIndex_);
+        }
+        a.addTimePoint("lock before");
+        mutex_.lock();
+        a.addTimePoint("lock after");
+        if (curIndex_ >= count_ - 1)
+        {
+            curIndex_ = 0;
+        }
+        else
+        {
+            ++curIndex_;
+        }
+        mutex_.unlock();
+        a.addTimePoint("unlock after");
+        last = now;
+        //  LOG_DEBUG(a.print());
+    }
+}
+
 void DynamicEffect::start()
 {
     running_ = true;
+    //  thread_ = new std::thread(&DynamicEffect::handleCurIndexCallback, this);
+
     timer_.setInterval(interval_time_);
-    timer_.start();
+    timer_.start(); // 优化项，就是需要一个更精准的定时器
 }
 void DynamicEffect::stop()
 {
     if (timer_.isActive())
     {
         timer_.stop();
+    }
+
+    if (thread_ && thread_->joinable())
+    {
+        thread_->join();
+        delete thread_;
     }
 }
 
@@ -261,57 +311,57 @@ void HahaUi::initRobotStrategy()
 
 void HahaUi::loadAllImage()
 {
-    std::string sleep_dir = imagePath_ + "魔镜互动-待机/";
+    std::string sleep_dir = imagePath_ + "sleep/";
     sleepEffect_.loadImages(sleep_dir);
     sleepEffect_.start();
 
-    std::string mirror_broken_dir = imagePath_ + "魔镜互动-破碎/";
+    std::string mirror_broken_dir = imagePath_ + "mirrorBroken/";
     mirrorBrokenEffect_.loadImages(mirror_broken_dir);
     mirrorBrokenEffect_.start();
 
-    std::string mirror_loop_dir = imagePath_ + "魔镜互动-转场/全镂空背景/";
+    std::string mirror_loop_dir = imagePath_ + "mirrorLoop/background/";
     mirrorLoopEffect_.loadImages(mirror_loop_dir);
     mirrorLoopEffect_.start();
 
-    std::string tip_loop_dir = imagePath_ + "魔镜互动-弹窗循环/";
+    std::string tip_loop_dir = imagePath_ + "tipsLoop/";
     tipLoopEffect_.loadImages(tip_loop_dir);
     tipLoopEffect_.start();
 
-    std::string tip_appear_dir = imagePath_ + "魔镜互动-弹窗出现/";
+    std::string tip_appear_dir = imagePath_ + "tipsAppear/";
     tipAppearEffect_.loadImages(tip_appear_dir);
     tipAppearEffect_.start();
 
-    std::string cruzr_dir = imagePath_ + "角色1/";
+    std::string cruzr_dir = imagePath_ + "cruzr/";
     cruzrEffect_.loadImages(cruzr_dir, 1.0);
     cruzrEffect_.setPoint(QPoint(700, 1400));
     cruzrEffect_.start();
 
-    std::string wukong1_dir = imagePath_ + "角色2/";
+    std::string wukong1_dir = imagePath_ + "wukong1/";
     wukong1Effect_.loadImages(wukong1_dir, 1.0);
     wukong1Effect_.setPoint(QPoint(90, 1400));
     wukong1Effect_.start();
 
-    std::string wukong2_dir = imagePath_ + "角色3/";
+    std::string wukong2_dir = imagePath_ + "wukong2/";
     wukong2Effect_.loadImages(wukong2_dir, 1.0);
     wukong2Effect_.setPoint(QPoint(745, 1400));
     wukong2Effect_.start();
 
-    std::string jimu1_dir = imagePath_ + "角色4/";
+    std::string jimu1_dir = imagePath_ + "jimu1/";
     jimu1Effect_.loadImages(jimu1_dir, 2.0);
     jimu1Effect_.setPoint(QPoint(0, 565));
     jimu1Effect_.start();
 
-    std::string jimu2_dir = imagePath_ + "角色5/";
+    std::string jimu2_dir = imagePath_ + "jimu2/";
     jimu2Effect_.loadImages(jimu2_dir, 2.0);
     jimu2Effect_.setPoint(QPoint(0, 1443));
     jimu2Effect_.start();
 
-    std::string jimu3_dir = imagePath_ + "角色6/";
+    std::string jimu3_dir = imagePath_ + "jimu3/";
     jimu3Effect_.loadImages(jimu3_dir, 2.0);
     jimu3Effect_.setPoint(QPoint(790, 1377));
     jimu3Effect_.start();
 
-    std::string jimu4_dir = imagePath_ + "角色7/";
+    std::string jimu4_dir = imagePath_ + "jimu4/";
     jimu4Effect_.loadImages(jimu4_dir, 2.0);
     jimu4Effect_.setPoint(QPoint(730, 310));
     jimu4Effect_.start();
@@ -374,7 +424,6 @@ void HahaUi::addImage(cv::Mat &mat, const HahaImageType type)
 
 void HahaUi::addMirrorLoopImage(QPainter &painter)
 {
-    //  LOG_DEBUG("addMirrorLoopImage");
     auto pix = mirrorLoopEffect_.getCurrentPixmap();
     painter.drawPixmap(0, 0, pix->width(), pix->height(), (*pix).copy());
 }
