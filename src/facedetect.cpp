@@ -6,17 +6,20 @@
 #include "common/logging.h"
 #include "common/processinfo.h"
 #include "common/time.h"
+#include "hahacore.h"
 #include "main_haha/include/faceRec/face_recognition_api.h"
 
 using namespace HaHaFaceVision;
 
 FaceDetect::FaceDetect()
     : running_(false)
+    , newData_(false)
     , models_path_(common::ProcessInfo::exeDirPath() + "/model/")
     , face_handle_(0)
     , max_face_num_(6)
     , validArea_(107, 287, 866, 1446)
     , detectStatus_(true)
+    , hahaCore_(nullptr)
 {
 }
 
@@ -122,6 +125,7 @@ void FaceDetect::handleTaskCallback()
             continue;
         }
         cv::Mat mat = person_mat_.clone();
+        bool new_data = newData_;
         matMutex_.unlock();
 
         //  cv::imshow("detect_exception.png", mat);
@@ -165,17 +169,14 @@ void FaceDetect::handleTaskCallback()
             big_heap.push(area);
             if (areas.find(area) == areas.end())
             {
-                // LOG_DEBUG("new");
                 areas[area] = std::vector<int>{i};
             }
             else
             {
-                // LOG_DEBUG("have old");
                 areas[area].push_back(i);
             }
         }
         analysis.addTimePoint("filter face of not in area");
-        //    LOG_DEBUG("end: {}", size);
 
         std::vector<FaceDetectResult> results;
         int face_num = std::min(size, max_face_num_);
@@ -188,7 +189,6 @@ void FaceDetect::handleTaskCallback()
 
             for (auto it = rects.begin(); it != rects.end() && i < face_num; ++it, ++i)
             {
-                // LOG_DEBUG("i: {}, val: {}, *it: {}", i, val, *it);
                 FaceDetectResult result;
                 auto faceresult = faceResults[*it];
                 result.bigFaceRect = calculateFaceRect(faceresult.faceRect,
@@ -200,8 +200,15 @@ void FaceDetect::handleTaskCallback()
             }
         }
         analysis.addTimePoint("calculate big face");
-
-        // LOG_DEBUG("cur: {}, last: {}", face_num, last_face_num);
+        if (hahaCore_ && new_data)
+        {
+            //   LOG_DEBUG("update hahaCore");
+            hahaCore_->setFaceInfo(mat, results);
+            matMutex_.lock();
+            newData_ = false;
+            matMutex_.unlock();
+        }
+        analysis.addTimePoint("send to hahacore");
 
         static int face_count = 0;
         static int last_face_num = 0;
@@ -209,7 +216,7 @@ void FaceDetect::handleTaskCallback()
         if (face_num == last_face_num)
         {
             ++face_count;
-            if (face_count >= 15)
+            if (face_count >= 30)
             {
                 personMutex_.lock();
                 person_results_.swap(results);
@@ -228,14 +235,9 @@ void FaceDetect::handleTaskCallback()
             face_count = 0;
         }
 
-        analysis.addTimePoint("swap person results");
-
-        // LOG_DEBUG("cur: {}, last: {}, face_count: {}", face_num, last_face_num_point, face_count);
-
+        analysis.addTimePoint("swap results");
         last_face_num = face_num;
-
-        LOG_DEBUG(analysis.print());
-        analysis.reset();
+        LOG_TRACE(analysis.print());
 
         mat.release();
     }
@@ -251,4 +253,7 @@ void FaceDetect::consumeRecord(const cv::Mat color_mat, const cv::Mat original_m
     }
 
     person_mat_ = color_mat.clone();
+    newData_ = true;
+
+    // LOG_DEBUG("new data into!!");
 }

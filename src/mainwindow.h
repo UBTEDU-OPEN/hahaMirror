@@ -11,7 +11,6 @@
 #include "hahaui.h"
 #include "playcamera.h"
 #include "producer_record_impl.h"
-#include "resolution.h"
 #include "websocket_server.h"
 
 QT_BEGIN_NAMESPACE
@@ -90,7 +89,6 @@ private:
     Hahacore *hahaCore_;
     FaceIdentify *faceIdentify_;
     HahaUi *hahaUi_;
-    Resolution *resolutionObject_;
 
     SleepStatus sleepStatus_;
     QRect deskRect_;

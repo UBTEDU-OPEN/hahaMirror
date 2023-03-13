@@ -32,15 +32,11 @@ set(SRC_LISTS
     hahaui.cpp
     http_client.cc 
     image.cpp 
-    imageoverlay.cpp 
     main.cpp 
     mainwindow.cpp 
     playcamera.cpp 
     producer_record_impl.cc 
-    resolution.cpp
-    robotui.cpp
     websocket_server.cc
-
 
     ${UI_FORMS}
     ${UI_RESOURCES}

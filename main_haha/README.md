@@ -10,7 +10,7 @@
 `./main ../models/`  
 
 # 输入及输出接口：
-## ------------获取人脸检测版本号-------------
+## ------------获取人脸检测版本号------------
 - 获取人脸检测版本号：  
     `Function:    UBT_AIGetFRVersion_x86`  
     `Description: 获取人脸识别版本号`  
@@ -18,7 +18,7 @@
     `   版本号 100 为v1.0.0`  
     `int UBT_AIGetFRVersion_x86();`  
 
-## ------------获取哈哈镜特效版本号-------------
+## ------------获取哈哈镜特效版本号------------
 - 获取哈哈镜特效版本号：  
     `Function:    UBT_AIGetHaHaVersion_x86`  
     `Description: 获取五官特效变换版本号`  
@@ -26,7 +26,7 @@
     `   版本号 100 为v1.0.0`  
     `int UBT_AIGetHaHaVersion_x86();`  
 
-## ------------初始化人脸模型-------------
+## ------------初始化人脸模型------------
 - 输入模型的路径、推理设置、线程数，进行模型初始化：  
     `Function:    UBT_AIFaceRecInit`  
     `Description: 人脸识别初始化`  
@@ -42,7 +42,7 @@
     `   AI_MEM_ALLOC_FAIL		   - memory allocation failed`  
     `int UBT_AIFaceRecInit(std::string modelDir, const FACE_CONFIG_PARAMS &configParam, int &faceHandle, int thread_num);`  
 
-## ------------画面镜像，模拟镜子效果-------------
+## ------------画面镜像，模拟镜子效果------------
 - 输入原图像，输出镜像后的图像：  
     `Function:    mirroY`  
     `Description: 人脸左右镜像`  
@@ -51,7 +51,7 @@
     `   dst[OUT]                - 镜像后图像`  
     `void mirroY(cv::Mat& src, cv::Mat& dst);`  
 
-## ------------进行人脸检测和关键点提取-------------
+## ------------进行人脸检测和关键点提取------------
 - 输入图片，获得人脸检测和关键点提取结果：  
     `Function:    UBT_AIFaceDetection`  
     `Description: 人脸检测功能`  
@@ -66,7 +66,7 @@
     `   AI_MEM_ALLOC_FAIL		   - memory allocation failed`  
     `int UBT_AIFaceDetection(int faceHandle, cv::Mat imageData, std::vector<FACE_DET_SINGLE_RESULT> &faceResults);`  
 
-## ------------进行人脸哈哈镜特效-------------
+## ------------进行人脸哈哈镜特效------------
 - 输入图片，并逐个输入图片中的人脸信息，进行特定部位的人脸变形：  
     `Function:    UBT_AIFaceHaha`  
     `Description: 选取五官特效变换`  
@@ -75,10 +75,11 @@
     `   faceRect[IN]		 - 要变换的人脸检测框`  
     `   faceShape[IN]		 - 要变换的人脸关键点`  
     `   type[IN]                 - 要变换的特效类型，0：眼睛； 1：嘴； 2：脸颊`  
+    `   beauty[IN]               - 美颜程度，0-100，0表示不美颜，100表示最大程度美颜`  
     `   img_transformed[OUT]     - 转换后图像`  
-    `void UBT_AIFaceHaha(cv::Mat& image, cv::Mat& img_transformed,cv::Rect faceRect,cv::Point2f faceShape[5], int type);`  
+    `void UBT_AIFaceHaha(cv::Mat& image, cv::Mat& img_transformed,cv::Rect faceRect, cv::Point2f faceShape[5], int type, int beauty = 0);`  
 
-## ------------释放人脸模型-------------
+## ------------释放人脸模型------------
 - 函数结束时需要释放资源：  
     `Function:    UBT_AIFaceRecUninit`  
     `Description: 人脸识别释放资源`  

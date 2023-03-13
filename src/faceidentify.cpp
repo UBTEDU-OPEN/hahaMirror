@@ -19,10 +19,7 @@ FaceIdentify::FaceIdentify()
 {
 }
 
-FaceIdentify::~FaceIdentify()
-{
-    stop();
-}
+FaceIdentify::~FaceIdentify() { stop(); }
 
 void FaceIdentify::start()
 {
@@ -56,11 +53,14 @@ void FaceIdentify::stop()
 
 void FaceIdentify::init()
 {
-    taskThread_ = new std::thread(std::bind(&FaceIdentify::handleTaskCallback, this));
-    saveRecordThread_ = new std::thread(std::bind(&FaceIdentify::saveFaceResultCallback, this));
+    taskThread_ =
+        new std::thread(std::bind(&FaceIdentify::handleTaskCallback, this));
+    saveRecordThread_ =
+        new std::thread(std::bind(&FaceIdentify::saveFaceResultCallback, this));
 }
 
-void FaceIdentify::consumeRecord(const cv::Mat color_mat, const cv::Mat original_mat)
+void FaceIdentify::consumeRecord(const cv::Mat color_mat,
+                                 const cv::Mat original_mat)
 {
     std::lock_guard<std::mutex> guard(matMutex_);
     if (!faceMat_.empty())
@@ -70,12 +70,12 @@ void FaceIdentify::consumeRecord(const cv::Mat color_mat, const cv::Mat original
     faceMat_ = original_mat.clone();
 }
 
-void FaceIdentify::setWebsocketServerOject(WebsocketServer *server)
+void FaceIdentify::setWebsocketServerOject(WebsocketServer* server)
 {
     webServer_ = server;
 }
 
-bool FaceIdentify::parseHttpResponse(std::string &response, ShowFaceInfo &info)
+bool FaceIdentify::parseHttpResponse(std::string& response, ShowFaceInfo& info)
 {
     using namespace nlohmann;
     bool rret = false;
@@ -84,7 +84,7 @@ bool FaceIdentify::parseHttpResponse(std::string &response, ShowFaceInfo &info)
         json j = json::parse(response);
         int code = j["code"].get<int>();
         std::string message = j["message"].get<std::string>();
-        if (code == 0 || message == "ok")
+        if (code == 0)
         {
             auto data = j["data"];
 
@@ -119,6 +119,7 @@ bool FaceIdentify::parseHttpResponse(std::string &response, ShowFaceInfo &info)
                 info.mask = false;
             }
             info.smile_level = data["smile"].get<int>();
+            info.produce_time = common::time::getCurrentMilliTime();
             if (info.smile_level < 0)
             {
                 info.smile_level = 0;
@@ -126,12 +127,12 @@ bool FaceIdentify::parseHttpResponse(std::string &response, ShowFaceInfo &info)
             rret = true;
         }
     }
-    catch (const json::parse_error &error)
+    catch (const json::parse_error& error)
     {
         LOG_WARN("parse error: {}", error.what());
         rret = false;
     }
-    catch (const json::type_error &error)
+    catch (const json::type_error& error)
     {
         LOG_WARN("type error: {}", error.what());
         rret = false;
@@ -153,7 +154,6 @@ void FaceIdentify::saveFaceResultCallback()
         }
         waitSaved_ = false;
 
-        std::vector<FaceRecord> record_vec;
         faceRecordMutex_.lock();
         int size = faceRecordVector_.size();
         if (size <= 0)
@@ -161,6 +161,7 @@ void FaceIdentify::saveFaceResultCallback()
             faceRecordMutex_.unlock();
             continue;
         }
+        std::vector<FaceRecord> record_vec;
         record_vec.swap(faceRecordVector_);
         faceRecordMutex_.unlock();
 
@@ -176,14 +177,16 @@ void FaceIdentify::saveFaceResultCallback()
 
         json params;
         params["cameraTag"] = "haha_camera";
-        params["groupId"] = QDateTime::currentDateTime().toString("yyyyMMdd").toStdString();
+        params["groupId"] =
+            QDateTime::currentDateTime().toString("yyyyMMdd").toStdString();
         params["records"] = records;
 
         BriefHttpClient client(config_->http()->save_camera_time_url);
         std::string response;
         std::string request = params.dump(2);
-        LOG_TRACE("request: {}", request);
-        bool ret = client.saveFaceRecord((uint8_t *) request.c_str(), request.size(), response);
+        LOG_DEBUG("request: {}", request);
+        bool ret = client.saveFaceRecord(
+            (uint8_t*)request.c_str(), request.size(), response);
         if (ret)
         {
             try
@@ -194,7 +197,7 @@ void FaceIdentify::saveFaceResultCallback()
                     LOG_ERROR("save camera record error!!");
                 }
             }
-            catch (json::exception &e)
+            catch (json::exception& e)
             {
                 LOG_ERROR("json parse error: {}!!", e.what());
             }
@@ -214,8 +217,8 @@ void FaceIdentify::httpIdentifyRequest(cv::Mat mat)
     imencode(".jpeg", mat, sourceImg);
     int size = sourceImg.size();
 
-    uint8_t *tmp = new uint8_t[size];
-    memcpy(tmp, (uint8_t *) &sourceImg[0], size); // sourceImg.data()
+    uint8_t* tmp = new uint8_t[size];
+    memcpy(tmp, (uint8_t*)&sourceImg[0], size); // sourceImg.data()
     std::string response;
     BriefHttpClient client(config_->http()->face_identfiy_url);
     bool ret = client.faceIdentify(&tmp[0], size, response);
@@ -224,20 +227,21 @@ void FaceIdentify::httpIdentifyRequest(cv::Mat mat)
         // 解析repsonse
         ShowFaceInfo faceinfo;
         ret = parseHttpResponse(response, faceinfo);
-
-        FaceRecord record;
-        record.user_id = faceinfo.user_id;
-        record.time = QDateTime::currentDateTime().toTime_t();
-        record.smile = faceinfo.smile_level;
-        faceRecordMutex_.lock();
-        faceRecordVector_.push_back(std::move(record));
-        faceRecordMutex_.unlock();
-        if (webServer_ && ret)
+        if (ret)
         {
-            // LOG_DEBUG("**********");
-            QByteArray ba((char *) tmp, size);
-            faceinfo.face_image = ba.toBase64().toStdString();
-            webServer_->appendMessage(std::move(faceinfo));
+            FaceRecord record;
+            record.user_id = faceinfo.user_id;
+            record.time = QDateTime::currentMSecsSinceEpoch();
+            record.smile = faceinfo.smile_level;
+            faceRecordMutex_.lock();
+            faceRecordVector_.push_back(std::move(record));
+            faceRecordMutex_.unlock();
+            if (webServer_)
+            {
+                QByteArray ba((char*)tmp, size);
+                faceinfo.face_image = ba.toBase64().toStdString();
+                webServer_->appendMessage(std::move(faceinfo));
+            }
         }
     }
 
@@ -271,16 +275,18 @@ void FaceIdentify::handleTaskCallback()
 
         if (size > 0)
         {
-            std::thread *t[size];
+            std::thread* t[size];
             for (int i = 0; i < size; ++i)
             {
                 cv::Mat face_mat = mat(results[i].bigFaceRect);
                 t[i] = new std::thread(
-                    std::bind(&FaceIdentify::httpIdentifyRequest, this, face_mat.clone()));
+                    std::bind(&FaceIdentify::httpIdentifyRequest,
+                              this,
+                              face_mat.clone()));
                 face_mat.release();
             }
 
-            std::thread *tt;
+            std::thread* tt;
             for (int i = 0; i < size; ++i)
             {
                 tt = t[i];
@@ -290,14 +296,21 @@ void FaceIdentify::handleTaskCallback()
             }
 
             // 上传
-            waitSaved_ = true;
+            matMutex_.lock();
+            size = faceRecordVector_.size();
+            matMutex_.unlock();
+            if (size > 0)
+            {
+                waitSaved_ = true;
+            }
         }
 
         uint64_t end_point_time = getCurrentMilliTime();
         int diff = int(end_point_time - begin_point_time);
         if (diff < interval_time_)
         {
-            std::this_thread::sleep_for(std::chrono::milliseconds(interval_time_ - diff));
+            std::this_thread::sleep_for(
+                std::chrono::milliseconds(interval_time_ - diff));
         }
     }
 }

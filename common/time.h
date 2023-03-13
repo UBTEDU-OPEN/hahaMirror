@@ -1,5 +1,5 @@
-#ifndef COMMON_TIME_H
-#define COMMON_TIME_H
+#ifndef TIME_H
+#define TIME_H
 #include <inttypes.h>
 #include <string>
 #include <vector>
@@ -13,8 +13,21 @@ uint64_t getCurrentTime();
 uint64_t getCurrentMilliTime();
 std::string timeFormatYMD();
 std::string timeFormatString();
-std::string caculateFPS();
+std::string timeFormatStamp();
 void updateNtpTime();
+
+class CaculateFps
+{
+public:
+    CaculateFps();
+    ~CaculateFps() = default;
+
+    std::string add();
+
+private:
+    int count_;
+    int64_t start_time_;
+};
 
 class TimeConsumingAnalysis
 {
@@ -44,4 +57,4 @@ private:
 } // namespace time
 }; // namespace common
 
-#endif // COMMON_TIME_H
+#endif

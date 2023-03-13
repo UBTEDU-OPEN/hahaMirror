@@ -22,9 +22,10 @@ image[IN]                - 源图像
 faceRect[IN]		 - 要变换的人脸检测框
 faceShape[IN]		 - 要变换的人脸关键点
 type[IN]                 - 要变换的特效类型，0：眼睛； 1：嘴； 2：脸颊
+beauty[IN]               - 美颜程度，0-100，0表示不美颜，100表示最大程度美颜
 img_transformed[OUT]     - 转换后图像
 *******************************************************************************************/
-void UBT_AIFaceHaha(cv::Mat& image, cv::Mat& img_transformed,cv::Rect faceRect,cv::Point2f faceShape[5], int type);
+void UBT_AIFaceHaha(cv::Mat& image, cv::Mat& img_transformed,cv::Rect faceRect, cv::Point2f faceShape[5], int type, int beauty = 0);
 
 
 /******************************************************************************************

@@ -10,12 +10,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3") #c++11
 find_package(OpenCV REQUIRED)
 include_directories(${OpenCV_INCLUDE_DIRS})
 
-#message("algorithm opencv dir: " ${OpenCV_INCLUDE_DIRS})
-
 find_package(InferenceEngine)
-
-message("InferenceEngine_LIBRARIES: " ${InferenceEngine_LIBRARIES})
-message("InferenceEngine_LIBRARIES: " ${InferenceEngine_LIBRARIES})
 
 include_directories(
 		include
@@ -36,6 +31,6 @@ add_executable(${PROJECT_NAME} ${SRC_LIST1})
 target_link_libraries(${PROJECT_NAME}
                       ${OpenCV_LIBS}
                       ${InferenceEngine_LIBRARIES} dl
-                      ${CMAKE_CURRENT_SOURCE_DIR}/lib/libFaceRec.so
-                      ${CMAKE_CURRENT_SOURCE_DIR}/lib/libFaceHaha.so)
-install(TARGETS ${PROJECT_NAME} LIBRARY DESTINATION ${CMAKE_CURRENT_SOURCE_DIR}/install)
+                      ${PROJECT_SOURCE_DIR}/lib/libFaceRec.so
+                      ${PROJECT_SOURCE_DIR}/lib/libFaceHaha.so)
+install(TARGETS ${PROJECT_NAME} LIBRARY DESTINATION ${PROJECT_SOURCE_DIR}/install)

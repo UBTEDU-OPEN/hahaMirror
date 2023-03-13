@@ -30,6 +30,8 @@ void ProducerRecordImpl::sendEmptyMatToAllConsumers()
 
 void ProducerRecordImpl::run()
 {
+    using namespace common::time;
+
     running_ = true;
 
     // 发送一个空的Mat, 当摄像头打不开的时候也有待机界面
@@ -45,7 +47,6 @@ CaptureCamera:
     VideoCapture cap(videoIndex_, cv::CAP_ANY);
     cap.set(cv::CAP_PROP_FRAME_WIDTH, config_->camera()->width);
     cap.set(cv::CAP_PROP_FRAME_HEIGHT, config_->camera()->height);
-
     if (!cap.isOpened())
     {
         LOG_ERROR("Cannot open camera!!");
@@ -55,19 +56,19 @@ CaptureCamera:
 
     Mat frame;
     Mat clone;
-
     while (running_)
     {
-        using namespace common::time;
+        TimeConsumingAnalysis anaylis;
 
-        std::string rate = common::time::caculateFPS();
+        static common::time::CaculateFps fps;
+        std::string rate = fps.add();
         if (rate != "")
         {
-            LOG_TRACE("Camera Fps: {}!!", rate);
+            LOG_DEBUG("Camera Fps: {}!!", rate);
         }
 
         // 擷取影像
-        TimeConsumingAnalysis anaylis;
+
         bool ret = cap.read(frame); // or cap >> frame;
         if (!ret)
         {
@@ -83,7 +84,7 @@ CaptureCamera:
         if (direction_ == 1)
         {
             image::rotate_arbitrarily_angle(frame, clone, 90);
-            LOG_TRACE("rotate: w: {}, h: {}", frame.cols, frame.rows);
+            //    LOG_TRACE("rotate: w: {}, h: {}", frame.cols, frame.rows);
             anaylis.addTimePoint("rotate");
         }
         else if (direction_ == 0)
@@ -95,13 +96,15 @@ CaptureCamera:
             static cv::Rect rect(x, 0, width, height);
             static cv::Size size(height, old_width);
             clone = frame(rect).clone();
-            LOG_TRACE("size: src: {},{}, dest: {}, {}",
-                      clone.cols,
-                      clone.rows,
-                      size.width,
-                      size.height);
+            //            LOG_TRACE("size: src: {},{}, dest: {}, {}",
+            //                      clone.cols,
+            //                      clone.rows,
+            //                      size.width,
+            //                      size.height);
 
+            anaylis.addTimePoint("cut out");
             cv::resize(clone, clone, size);
+            anaylis.addTimePoint("resize");
         }
 
         auto consumers = getRecordConsumers();
@@ -109,6 +112,9 @@ CaptureCamera:
         {
             (*it)->consumeRecord(clone, clone);
         }
+
+        anaylis.addTimePoint("send to consumers");
+        LOG_TRACE(anaylis.print());
     }
 
     running_ = false;

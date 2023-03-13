@@ -1,6 +1,7 @@
 #include "websocket_server.h"
 #include "image.h"
 
+#include <atomic>
 #include <iostream>
 #include <sys/prctl.h>
 
@@ -13,6 +14,7 @@
 #include "common/time.h"
 
 #include <QByteArray>
+#include <QDateTime>
 #include <QDebug>
 
 using websocketpp::connection_hdl;
@@ -21,6 +23,8 @@ using websocketpp::lib::placeholders::_1;
 using websocketpp::lib::placeholders::_2;
 using websocketpp::lib::placeholders::_3;
 
+std::atomic<int> g_msgIndex_(0);
+
 WebsocketServer::WebsocketServer()
     : running_(false)
 {
@@ -28,6 +32,7 @@ WebsocketServer::WebsocketServer()
     m_server_.set_reuse_addr(true); // 关键， 可以复用TIME_WAIT状态的端口
     m_server_.set_open_handler(bind(&WebsocketServer::on_open, this, _1));
     m_server_.set_close_handler(bind(&WebsocketServer::on_close, this, _1));
+    m_server_.set_message_handler(bind(&WebsocketServer::on_message, this, _1, _2));
 }
 
 WebsocketServer::~WebsocketServer()
@@ -60,6 +65,7 @@ void WebsocketServer::startSendThread()
             messages_.pop();
             msgMutex_.unlock();
 
+            int index = g_msgIndex_++;
             json j;
             j["name"] = front.name;
             j["user_id"] = front.user_id;
@@ -68,6 +74,8 @@ void WebsocketServer::startSendThread()
             j["mask"] = front.mask;
             j["smile_level"] = front.smile_level;
             j["face_image"] = front.face_image;
+            j["index"] = index;
+            j["produce_time"] = front.produce_time;
 
             std::string sendtxt = j.dump(2);
             LOG_TRACE(sendtxt);
@@ -76,9 +84,22 @@ void WebsocketServer::startSendThread()
 
             for (auto it = m_connections_.begin(); it != m_connections_.end(); ++it)
             {
-                m_server_.send(*it, sendtxt, websocketpp::frame::opcode::text);
+                std::string uri = m_server_.get_con_from_hdl(*it)->get_remote_endpoint();
+                LOG_DEBUG("send uri {} index {}", uri, index);
+                j["time"]
+                    = QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss.zzz").toStdString();
+                j["send_time"] = QDateTime::currentMSecsSinceEpoch();
+                m_server_.send(*it, j.dump(2), websocketpp::frame::opcode::text);
                 analysis.addTimePoint("websocket send faceinfo");
-                LOG_DEBUG(analysis.print());
+
+                // json jack;
+                // jack["index"] = index;
+                // jack["time"] = QDateTime::currentMSecsSinceEpoch();
+                // m_server_.send(
+                //     *it, jack.dump(2), websocketpp::frame::opcode::text);
+                // analysis.addTimePoint("websocket send faceinfo ack");
+
+                // LOG_DEBUG(analysis.print());
             }
         }
 
@@ -123,6 +144,16 @@ void WebsocketServer::on_close(connection_hdl hdl)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
     m_connections_.erase(hdl);
+    std::string uri = m_server_.get_con_from_hdl(hdl)->get_remote_endpoint();
+
+    LOG_DEBUG("erase uri {}!!", uri);
+}
+
+void WebsocketServer::on_message(websocketpp::connection_hdl hdl, message_ptr msg)
+{
+    std::string payload = msg->get_payload();
+    std::string uri = m_server_.get_con_from_hdl(hdl)->get_remote_endpoint();
+    LOG_DEBUG("receive uri: {}, payload: {}", uri, payload);
 }
 
 void WebsocketServer::connectTaskThread()
@@ -162,6 +193,8 @@ static std::string getHumanPicture(int id)
     static const string pic1 = "/home/ubt/Pictures/haha7.jpeg";
     static const string pic2 = "/home/ubt/Pictures/haha2.jpeg";
     static const string pic3 = "/home/ubt/Pictures/haha3.jpeg";
+    static const string pic4 = "/home/ubt/Pictures/haha6.jpeg";
+    static const string pic5 = "/home/ubt/Pictures/haha5.jpeg";
     if (id == 0)
     {
         picture = pic1;
@@ -174,6 +207,14 @@ static std::string getHumanPicture(int id)
     {
         picture = pic3;
     }
+    else if (id == 3)
+    {
+        picture = pic4;
+    }
+    else if (id == 4)
+    {
+        picture = pic5;
+    }
     else
     {
         picture = "/home/ubt/Pictures/haha1.jpeg";
@@ -185,6 +226,7 @@ static std::string getHumanPicture(int id)
 void WebsocketServer::startVirtualServer(uint16_t port)
 {
     start(port);
+    int64_t num = 0;
     auto virtualDataCreateFunc = [&] {
         time(NULL);
 
@@ -192,7 +234,7 @@ void WebsocketServer::startVirtualServer(uint16_t port)
         {
             ShowFaceInfo info;
 
-            int val = rand() % 3;
+            int val = rand() % 5;
             if (val == 0)
             {
                 info.name = "张三";
@@ -220,14 +262,34 @@ void WebsocketServer::startVirtualServer(uint16_t port)
                 info.mask = false;
                 info.smile_level = 100;
             }
+            else if (val == 3)
+            {
+                info.name = "大壮";
+                info.user_id = "user_6";
+                info.age = 31;
+                info.sex = "男";
+                info.mask = false;
+                info.smile_level = 90;
+            }
+            else if (val == 4)
+            {
+                info.name = "小美";
+                info.user_id = "user_7";
+                info.age = 27;
+                info.sex = "女";
+                info.mask = false;
+                info.smile_level = 0;
+            }
 
             // qDebug() << "val: " << val;
 
             info.face_image = getHumanPicture(val);
 
             appendMessage(std::move(info));
-
-            sleep(10);
+            if (num++ >= 3)
+            {
+                sleep(2);
+            }
         }
     };
 

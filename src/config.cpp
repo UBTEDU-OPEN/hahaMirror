@@ -52,12 +52,14 @@ void Config::init()
         settings_->endGroup();
 
         settings_->beginGroup("Haha");
-        settings_->setValue("interval_time_ms", haha_.interval_time_ms);
+        settings_->setValue("beauty", haha_.beauty);
         settings_->endGroup();
 
         settings_->beginGroup("Basic");
         settings_->setValue("log_level", basic_.log_level);
         settings_->endGroup();
+
+        settings_->sync();
     }
     else
     {
@@ -86,5 +88,7 @@ void Config::init()
             = settings_->value("Detect/interval_time_ms", detect_.interval_time_ms).toInt();
 
         basic_.log_level = settings_->value("Basic/log_level", basic_.log_level).toInt();
+
+        haha_.beauty = settings_->value("Haha/beauty", haha_.beauty).toInt();
     }
 }

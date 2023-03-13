@@ -76,18 +76,20 @@ void MainWindow::initLogger()
 void MainWindow::init()
 {
     webServer_ = new WebsocketServer;
+    // webServer_->startVirtualServer(9004);
     webServer_->start(9004);
 
     //    cameraClient_ = new PlayCamera();
     //    cameraClient_->start();
 
-    facedetect_ = new FaceDetect;
-    facedetect_->setConfig(config_);
-    facedetect_->start();
     hahaCore_ = new Hahacore;
     hahaCore_->setConfig(config_);
     hahaCore_->setFaceDetectObject(facedetect_);
     hahaCore_->start();
+    facedetect_ = new FaceDetect;
+    facedetect_->setConfig(config_);
+    facedetect_->setHahacoreObject(hahaCore_);
+    facedetect_->start();
     faceIdentify_ = new FaceIdentify;
     faceIdentify_->setConfig(config_);
     faceIdentify_->setFaceDetectObject(facedetect_);
@@ -101,7 +103,7 @@ void MainWindow::init()
     cameraServer_->startServer();
     // cameraServer_->registerRecordConsumer(cameraClient_);
     cameraServer_->registerRecordConsumer(facedetect_);
-    cameraServer_->registerRecordConsumer(hahaCore_);
+    // cameraServer_->registerRecordConsumer(hahaCore_);
     cameraServer_->registerRecordConsumer(faceIdentify_);
     cameraServer_->setHahaUi(hahaUi_);
 
@@ -154,7 +156,6 @@ int MainWindow::getVideoDevice()
 
 void MainWindow::initConnect()
 {
-    // connect(cameraClient_, &PlayCamera::sig_getHahaImage, this, &MainWindow::slot_getHahaImage);
     connect(hahaCore_,
             &Hahacore::sig_sendHahaMat,
             this,
@@ -399,8 +400,6 @@ void MainWindow::checkUiStatus()
         {
             lastIndex = index;
         }
-
-        // LOG_DEBUG("index: {}", index);
     }
     else if (status == Waved)
     {
@@ -422,7 +421,8 @@ void MainWindow::checkUiStatus()
 
 void MainWindow::slot_showtimeout()
 {
-    std::string rate = common::time::caculateFPS();
+    static common::time::CaculateFps fps;
+    std::string rate = fps.add();
     if (rate != "")
     {
         LOG_TRACE("MainWindow Fps: {}!!", rate);
@@ -451,14 +451,10 @@ void MainWindow::slot_showtimeout()
     static cv::Size ui_size(1080, 1920);
     cv::resize(mat, mat, ui_size);
 
-    // cv::imshow("here1", mat);
-
-    // hahaUi_->addImage(mat, cv::Rect(), HahaUi::Effect);
     statusMutex_.lock();
     SleepStatus status = sleepStatus_;
     statusMutex_.unlock();
 
-    // LOG_DEBUG("status: {}", status);
     if (status == Waving || status == Waved)
     {
         checkUiStatus();
@@ -479,7 +475,6 @@ void MainWindow::slot_showtimeout()
     }
     else if (status == Waved)
     {
-        // LOG_DEBUG("waved");
         hahaUi_->addImage(mat, HahaUi::RobotsMirrorLoopTipApper);
     }
     else if (status == Work)

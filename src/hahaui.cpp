@@ -3,44 +3,49 @@
 #include "common/processinfo.h"
 #include "common/time.h"
 #include "image.h"
-#include <boost/filesystem.hpp>
 #include <QFontDatabase>
 #include <QPainter>
 #include <QPixmap>
 #include <QTime>
+#include <boost/filesystem.hpp>
 
-static void scanFilesUseBoost(const std::string &rootPath,
-                              std::vector<std::string> &container,
+static void scanFilesUseBoost(const std::string& rootPath,
+                              std::vector<std::string>& container,
                               std::string extension)
 {
-    //container.clear();
+    // container.clear();
     boost::filesystem::path fullpath(rootPath);
 
-    if (!boost::filesystem::exists(fullpath) || !boost::filesystem::is_directory(fullpath))
+    if (!boost::filesystem::exists(fullpath) ||
+        !boost::filesystem::is_directory(fullpath))
     {
         std::cerr << "File path not exist!" << std::endl;
         return;
     }
 
     boost::filesystem::recursive_directory_iterator end_iter;
-    for (boost::filesystem::recursive_directory_iterator iter(fullpath); iter != end_iter; iter++)
+    for (boost::filesystem::recursive_directory_iterator iter(fullpath);
+         iter != end_iter;
+         iter++)
     {
         try
         {
             if (boost::filesystem::is_directory(*iter))
             {
                 std::cout << *iter << "is dir" << std::endl;
-                //scanFilesUseRecursive(iter->path().string(),container,extension); //if find file recursively
+                // scanFilesUseRecursive(iter->path().string(),container,extension);
+                // //if find file recursively
             }
             else
             {
-                if (boost::filesystem::is_regular_file(*iter)
-                    && iter->path().extension() == extension)
+                if (boost::filesystem::is_regular_file(*iter) &&
+                    iter->path().extension() == extension)
                     container.push_back(iter->path().string());
-                //                std::cout << *iter << " is a file" << std::endl;
+                //                std::cout << *iter << " is a file" <<
+                //                std::endl;
             }
         }
-        catch (const std::exception &ex)
+        catch (const std::exception& ex)
         {
             std::cerr << ex.what() << std::endl;
             continue;
@@ -86,7 +91,7 @@ static bool LessSort(std::string filePath1, std::string filePath2)
     return (!GreaterEqSort(filePath1, filePath2));
 }
 
-static void pathSort(std::vector<std::string> &paths, int sortMode)
+static void pathSort(std::vector<std::string>& paths, int sortMode)
 {
     if (sortMode == 1)
     {
@@ -104,12 +109,9 @@ DynamicEffect::DynamicEffect()
     connect(&timer_, &QTimer::timeout, this, &DynamicEffect::slot_timeout);
 }
 
-DynamicEffect::~DynamicEffect()
-{
-    stop();
-}
+DynamicEffect::~DynamicEffect() { stop(); }
 
-QPixmap *DynamicEffect::getCurrentPixmap()
+QPixmap* DynamicEffect::getCurrentPixmap()
 {
     if (count_ == 0)
     {
@@ -262,10 +264,11 @@ void HahaUi::init()
     // loadFonts();
 }
 
-//void HahaUi::loadFonts()
+// void HahaUi::loadFonts()
 //{
-//    std::string fontpath = common::ProcessInfo::exeDirPath() + "/YouSheBiaoTiHei-2.ttf";
-//    int id = QFontDatabase::addApplicationFont(QString::fromStdString(fontpath));
+//     std::string fontpath = common::ProcessInfo::exeDirPath() +
+//     "/YouSheBiaoTiHei-2.ttf"; int id =
+//     QFontDatabase::addApplicationFont(QString::fromStdString(fontpath));
 
 //    QStringList families = QFontDatabase::applicationFontFamilies(id);
 
@@ -367,7 +370,7 @@ void HahaUi::loadAllImage()
     jimu4Effect_.start();
 }
 
-void HahaUi::addImage(cv::Mat &mat, const HahaImageType type)
+void HahaUi::addImage(cv::Mat& mat, const HahaImageType type)
 {
     QPixmap pix = QPixmap::fromImage(image::mat2qim(mat));
     QPainter painter;
@@ -395,19 +398,16 @@ void HahaUi::addImage(cv::Mat &mat, const HahaImageType type)
     }
     else if (type == Robots)
     {
-        // robotStrategy_ = robotStrategyVector_[1];
         addRobotImage(painter);
     }
     else if (type == RobotsMirrorLoopTipApper)
     {
-        //  LOG_DEBUG("RobotsMirrorLoopTipApper");
         addRobotImage(painter);
         addMirrorLoopImage(painter);
         addTipAppearImage(painter);
     }
     else if (type == RobotsMirrorLoopTipLoop)
     {
-        // LOG_DEBUG("RobotsMirrorLoopTipLoop");
         addRobotImage(painter);
         addMirrorLoopImage(painter);
         addTipLoopImage(painter);
@@ -422,99 +422,90 @@ void HahaUi::addImage(cv::Mat &mat, const HahaImageType type)
     mat = image::QPixmapToCvMat(pix, true);
 }
 
-void HahaUi::addMirrorLoopImage(QPainter &painter)
+void HahaUi::addMirrorLoopImage(QPainter& painter)
 {
     auto pix = mirrorLoopEffect_.getCurrentPixmap();
     painter.drawPixmap(0, 0, pix->width(), pix->height(), (*pix).copy());
 }
 
-void HahaUi::addMirrorBrokenImage(QPainter &painter)
+void HahaUi::addMirrorBrokenImage(QPainter& painter)
 {
-    //  LOG_DEBUG("addMirrorBrokenImage");
     auto pix = mirrorBrokenEffect_.getCurrentPixmap();
     painter.drawPixmap(0, 0, pix->width(), pix->height(), *pix);
 }
 
-void HahaUi::addSleepImage(QPainter &painter)
+void HahaUi::addSleepImage(QPainter& painter)
 {
-    //  LOG_DEBUG("addSleepImage");
     auto pix = sleepEffect_.getCurrentPixmap();
     painter.drawPixmap(0, 0, pix->width(), pix->height(), *pix);
 }
 
-void HahaUi::addTipAppearImage(QPainter &painter)
+void HahaUi::addTipAppearImage(QPainter& painter)
 {
-    //  LOG_DEBUG("addTipAppearImage");
     auto pix = tipAppearEffect_.getCurrentPixmap();
     painter.drawPixmap(118, 88, pix->width(), pix->height(), *pix);
 }
 
-void HahaUi::addTipLoopImage(QPainter &painter)
+void HahaUi::addTipLoopImage(QPainter& painter)
 {
-    //  LOG_DEBUG("addTipLoopImage");
     auto pix = tipLoopEffect_.getCurrentPixmap();
     painter.drawPixmap(118, 88, pix->width(), pix->height(), *pix);
 }
 
-void HahaUi::addRobotImage(QPainter &painter)
+void HahaUi::addRobotImage(QPainter& painter)
 {
-    //  LOG_DEBUG("addRobotImage");
-    //LOG_DEBUG("here");
-    // robotStrategy_ = robotStrategyVector_[4];
-    //    LOG_DEBUG("strategy: {},{},{},{},{},{},{}",
-    //              (uint8_t) robotStrategy_.cruzer,
-    //              (uint8_t) robotStrategy_.wukong1,
-    //              (uint8_t) robotStrategy_.wukong2,
-    //              (uint8_t) robotStrategy_.jimu1,
-    //              (uint8_t) robotStrategy_.jimu2,
-    //              (uint8_t) robotStrategy_.jimu3,
-    //              (uint8_t) robotStrategy_.jimu4);
     if (robotStrategy_.cruzer == 1)
     {
         auto pix = cruzrEffect_.getCurrentPixmap();
         QPoint point = cruzrEffect_.point_;
-        painter.drawPixmap(point.x(), point.y(), pix->width(), pix->height(), *pix);
+        painter.drawPixmap(
+            point.x(), point.y(), pix->width(), pix->height(), *pix);
     }
     if (robotStrategy_.wukong1 == 1)
     {
         auto pix = wukong1Effect_.getCurrentPixmap();
         QPoint point = wukong1Effect_.point_;
-        painter.drawPixmap(point.x(), point.y(), pix->width(), pix->height(), *pix);
+        painter.drawPixmap(
+            point.x(), point.y(), pix->width(), pix->height(), *pix);
     }
     if (robotStrategy_.wukong2 == 1)
     {
         auto pix = wukong2Effect_.getCurrentPixmap();
         QPoint point = wukong2Effect_.point_;
-        painter.drawPixmap(point.x(), point.y(), pix->width(), pix->height(), *pix);
+        painter.drawPixmap(
+            point.x(), point.y(), pix->width(), pix->height(), *pix);
     }
     if (robotStrategy_.jimu1 == 1)
     {
-        // LOG_DEBUG("here1");
         auto pix = jimu1Effect_.getCurrentPixmap();
         QPoint point = jimu1Effect_.point_;
-        painter.drawPixmap(point.x(), point.y(), pix->width(), pix->height(), *pix);
+        painter.drawPixmap(
+            point.x(), point.y(), pix->width(), pix->height(), *pix);
     }
     if (robotStrategy_.jimu2 == 1)
     {
         auto pix = jimu2Effect_.getCurrentPixmap();
         QPoint point = jimu2Effect_.point_;
-        painter.drawPixmap(point.x(), point.y(), pix->width(), pix->height(), *pix);
+        painter.drawPixmap(
+            point.x(), point.y(), pix->width(), pix->height(), *pix);
     }
     if (robotStrategy_.jimu3 == 1)
     {
         auto pix = jimu3Effect_.getCurrentPixmap();
         QPoint point = jimu3Effect_.point_;
-        painter.drawPixmap(point.x(), point.y(), pix->width(), pix->height(), *pix);
+        painter.drawPixmap(
+            point.x(), point.y(), pix->width(), pix->height(), *pix);
     }
     if (robotStrategy_.jimu4 == 1)
     {
         auto pix = jimu4Effect_.getCurrentPixmap();
         QPoint point = jimu4Effect_.point_;
-        painter.drawPixmap(point.x(), point.y(), pix->width(), pix->height(), *pix);
+        painter.drawPixmap(
+            point.x(), point.y(), pix->width(), pix->height(), *pix);
     }
 }
 
-void HahaUi::getRandomRobot(int &r1, int &r2)
+void HahaUi::getRandomRobot(int& r1, int& r2)
 {
     time(NULL);
     r1 = rand() % 3;

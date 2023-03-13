@@ -10,7 +10,7 @@ struct Camera
 {
     int width = 1920;
     int height = 1080;
-    int direction = 1; // 0 摄像头横着，1 摄像头竖着
+    int direction = 0; // 0 摄像头横着，1 摄像头竖着
 };
 
 struct Http
@@ -29,7 +29,7 @@ struct Detect
 
 struct Haha
 {
-    int interval_time_ms = 30;
+    int beauty = 20;
 };
 
 struct Basic

@@ -7,7 +7,6 @@
 
 #include "config.h"
 #include "consumer_base.h"
-#include "resolution.h"
 
 struct FaceDetectResult
 {
@@ -22,6 +21,8 @@ struct FaceDetectResult
         return *this;
     }
 };
+
+class Hahacore;
 
 class FaceDetect : public QObject, public ConsumerRecord
 {
@@ -53,6 +54,7 @@ public:
         max_face_num_ = config->detect()->max_face_num;
     }
     void setDetectStatus(bool flag) { detectStatus_ = flag; }
+    void setHahacoreObject(Hahacore *core) { hahaCore_ = core; }
     cv::Rect &getValidArea() { return validArea_; }
 
 signals:
@@ -63,6 +65,7 @@ private:
     void handleTaskCallback();
 
     bool running_;
+    bool newData_;
     std::vector<FaceDetectResult> person_results_;
     cv::Mat person_mat_;
     std::string models_path_;
@@ -76,6 +79,7 @@ private:
     cv::Rect validArea_;
     bool detectStatus_;
     config::Config *config_;
+    Hahacore *hahaCore_;
 };
 
 #endif // FACEDETECT_H

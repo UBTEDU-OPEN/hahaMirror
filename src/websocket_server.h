@@ -16,6 +16,7 @@ typedef struct _ShowFaceInfo
     bool mask;
     int smile_level;
     std::string face_image;
+    int64_t produce_time;
     _ShowFaceInfo()
     {
         name = "张三";
@@ -25,9 +26,10 @@ typedef struct _ShowFaceInfo
         mask = true;
         smile_level = 70; // 满分100
         face_image = "";
+        produce_time = 0;
     }
 
-    _ShowFaceInfo operator=(const _ShowFaceInfo &data)
+    _ShowFaceInfo operator=(const _ShowFaceInfo& data)
     {
         name = data.name;
         user_id = data.user_id;
@@ -36,6 +38,7 @@ typedef struct _ShowFaceInfo
         mask = data.mask;
         smile_level = data.smile_level;
         face_image = data.face_image;
+        produce_time = data.produce_time;
         return *this;
     }
 
@@ -55,12 +58,15 @@ public:
 
 private:
     typedef websocketpp::server<websocketpp::config::asio> server;
-    typedef std::set<websocketpp::connection_hdl, std::owner_less<websocketpp::connection_hdl>>
+    typedef server::message_ptr message_ptr;
+    typedef std::set<websocketpp::connection_hdl,
+                     std::owner_less<websocketpp::connection_hdl>>
         con_list;
 
     void init();
     void on_open(websocketpp::connection_hdl hdl);
     void on_close(websocketpp::connection_hdl hdl);
+    void on_message(websocketpp::connection_hdl hdl, message_ptr msg);
     void startSendThread();
     void connectTaskThread();
 
@@ -72,8 +78,8 @@ private:
     std::queue<ShowFaceInfo> messages_;
     int port_;
 
-    std::thread *connectThread_;
-    std::thread *sendThread_;
+    std::thread* connectThread_;
+    std::thread* sendThread_;
 };
 
 #endif // JUMP_WEBSOCKETSERVER_H
